@@ -176,7 +176,29 @@
             { name: 'fuchsia', header: 'bg-fuchsia-500', bg: 'bg-fuchsia-200', text: 'text-fuchsia-900', hover: 'hover:bg-fuchsia-300' }
         ];
 
+        // Funktion um 50% / 50% Vorzeichen zu generieren (und zu mischen)
+        function generateSecretSigns(count) {
+            let signs = [];
+            let half = Math.floor(count / 2);
+            for(let i=0; i<half; i++) {
+                signs.push(1);
+                signs.push(-1);
+            }
+            if (count % 2 !== 0) {
+                signs.push(Math.random() > 0.5 ? 1 : -1);
+            }
+            // Mischen (Fisher-Yates Shuffle)
+            for (let i = signs.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [signs[i], signs[j]] = [signs[j], signs[i]];
+            }
+            return signs;
+        }
+
         function createInitialData(cols = 5, rows = 5) {
+            const totalQuestions = cols * rows;
+            const secretSigns = generateSecretSigns(totalQuestions);
+
             return {
                 config: { 
                     cols: cols, 
@@ -191,7 +213,7 @@
                     { name: "Team 3", score: 0 },
                     { name: "Team 4", score: 0 }
                 ],
-                questions: Array(cols * rows).fill(null).map((_, index) => {
+                questions: Array(totalQuestions).fill(null).map((_, index) => {
                     const row = Math.floor(index / cols);
                     const col = index % cols;
                     return {
@@ -204,7 +226,7 @@
                         isJoker: false,
                         answered: false,
                         wrongCount: 0,
-                        secretSign: Math.random() > 0.5 ? 1 : -1 // Für "Klauen & Schenken"
+                        secretSign: secretSigns[index] // 50/50 verteilt
                     };
                 })
             };
@@ -215,7 +237,7 @@
             gameMode: 'classic', // 'classic' oder 'steal_gift'
             gameData: createInitialData(),
             currentQuestion: null,
-            modalStep: 0, // 0: Frage, 1: Bewertung, 2: Lösung, 11/12: Steal&Gift Steps
+            modalStep: 0, // 0: Frage, 1: Bewertung, 2: Lösung, 10/11/12: Steal&Gift Steps
             showAnswer: false,
             editorAuth: false,
             pendingScoreUpdates: [],
@@ -275,11 +297,20 @@
                 if(typeof parsed.config.allowThreeStrikes === 'undefined') parsed.config.allowThreeStrikes = false;
                 if(typeof parsed.config.deductOnWrong === 'undefined') parsed.config.deductOnWrong = true;
                 
+                let needsSigns = false;
                 parsed.questions.forEach(q => {
                     if (typeof q.isJoker === 'undefined') q.isJoker = false;
                     if (typeof q.wrongCount === 'undefined') q.wrongCount = 0;
-                    if (typeof q.secretSign === 'undefined') q.secretSign = Math.random() > 0.5 ? 1 : -1;
+                    if (typeof q.secretSign === 'undefined') needsSigns = true;
                 });
+                
+                // Falls ältere Speicherstände keine Vorzeichen hatten, werden sie exakt 50/50 verteilt generiert
+                if (needsSigns) {
+                    const newSigns = generateSecretSigns(parsed.questions.length);
+                    parsed.questions.forEach((q, i) => {
+                        if (typeof q.secretSign === 'undefined') q.secretSign = newSigns[i];
+                    });
+                }
 
                 state.gameData = parsed;
             }
@@ -292,10 +323,11 @@
 
         function resetGameStatus() {
             if(!confirm("Möchtest du wirklich ein neues Spiel starten?")) return;
-            state.gameData.questions.forEach(q => {
+            const newSigns = generateSecretSigns(state.gameData.questions.length);
+            state.gameData.questions.forEach((q, i) => {
                 q.answered = false;
                 q.wrongCount = 0; 
-                q.secretSign = Math.random() > 0.5 ? 1 : -1; // Neues Spiel = neue Vorzeichen
+                q.secretSign = newSigns[i]; // Neues Spiel = Vorzeichen neu 50/50 durchgemischt
             });
             state.gameData.teams.forEach(t => t.score = 0);
             saveToLocal();
@@ -337,10 +369,6 @@
         function startGame(mode) {
             state.gameMode = mode;
             state.view = 'game';
-            // Fallback: Sicherstellen, dass Vorzeichen existieren
-            state.gameData.questions.forEach(q => {
-                if (!q.secretSign) q.secretSign = Math.random() > 0.5 ? 1 : -1;
-            });
             render();
         }
 
@@ -489,9 +517,14 @@
                 for (let c = 0; c < newCols; c++) {
                     const existing = state.gameData.questions.find(q => q.row === r && q.col === c);
                     if(existing) newQuestions.push(existing);
-                    else newQuestions.push({ id: `q_${r}_${c}`, row: r, col: c, value: (r + 1) * 100, question: "", answer: "", isJoker: false, answered: false, wrongCount: 0, secretSign: Math.random() > 0.5 ? 1 : -1 });
+                    else newQuestions.push({ id: `q_${r}_${c}`, row: r, col: c, value: (r + 1) * 100, question: "", answer: "", isJoker: false, answered: false, wrongCount: 0 });
                 }
             }
+            
+            // Wenn das Layout geändert wird, werden die Vorzeichen neu in 50/50 verteilt
+            const newSigns = generateSecretSigns(newQuestions.length);
+            newQuestions.forEach((q, i) => { q.secretSign = newSigns[i]; });
+
             const newCategories = [];
             for (let c = 0; c < newCols; c++) { newCategories.push(c < state.gameData.categories.length ? state.gameData.categories[c] : `Kategorie ${c+1}`); }
             state.gameData.config.cols = newCols;
@@ -566,7 +599,7 @@
                                 <div class="space-y-4 text-indigo-900 text-lg leading-relaxed">
                                     <p>Ein taktischer Twist für das klassische Spiel!</p>
                                     <ul class="list-disc pl-6 space-y-2">
-                                        <li>Die Punktewerte auf dem Spielfeld sind <strong>geheim</strong> entweder <strong>positiv (+)</strong> oder <strong>negativ (-)</strong>.</li>
+                                        <li>Die Punktewerte auf dem Spielfeld sind <strong>geheim</strong> exakt zur Hälfte positiv (+) und zur Hälfte negativ (-).</li>
                                         <li>Beantwortet ein Team eine Frage richtig, bekommt es die Punkte <strong>nicht sofort</strong>.</li>
                                         <li>Das Team muss nun entscheiden: Wem geben wir die Punkte? <strong>Sich selbst oder einem gegnerischen Team?</strong></li>
                                         <li>Erst wenn die Wahl getroffen wurde, wird das Vorzeichen enthüllt!</li>
