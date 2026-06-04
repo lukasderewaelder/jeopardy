@@ -204,7 +204,8 @@
                     cols: cols, 
                     rows: rows,
                     allowThreeStrikes: false,
-                    deductOnWrong: true // Standardmäßig Minuspunkte
+                    deductOnWrong: true, 
+                    enforceOrder: false // NEU: Feste Team-Reihenfolge
                 },
                 categories: Array(cols).fill("").map((_, i) => `Kategorie ${i+1}`),
                 teams: [
@@ -242,7 +243,9 @@
             editorAuth: false,
             pendingScoreUpdates: [],
             sgActingTeam: -1,
-            sgTargetTeam: -1
+            sgTargetTeam: -1,
+            activeTeamIndex: -1, // NEU: Welches Team ist gerade an der Reihe
+            isDrawingTeam: false // NEU: Zeigt Animation beim Start
         };
 
         // --- SOUND SYSTEM ---
@@ -293,9 +296,10 @@
             const stored = localStorage.getItem('jeopardyDataV3');
             if (stored) {
                 const parsed = JSON.parse(stored);
-                if(!parsed.config) parsed.config = { cols: 5, rows: 5, allowThreeStrikes: false, deductOnWrong: true };
+                if(!parsed.config) parsed.config = { cols: 5, rows: 5, allowThreeStrikes: false, deductOnWrong: true, enforceOrder: false };
                 if(typeof parsed.config.allowThreeStrikes === 'undefined') parsed.config.allowThreeStrikes = false;
                 if(typeof parsed.config.deductOnWrong === 'undefined') parsed.config.deductOnWrong = true;
+                if(typeof parsed.config.enforceOrder === 'undefined') parsed.config.enforceOrder = false;
                 
                 let needsSigns = false;
                 parsed.questions.forEach(q => {
@@ -304,7 +308,6 @@
                     if (typeof q.secretSign === 'undefined') needsSigns = true;
                 });
                 
-                // Falls ältere Speicherstände keine Vorzeichen hatten, werden sie exakt 50/50 verteilt generiert
                 if (needsSigns) {
                     const newSigns = generateSecretSigns(parsed.questions.length);
                     parsed.questions.forEach((q, i) => {
@@ -316,22 +319,65 @@
             }
         }
 
+        // --- CUSTOM MODALS FÜR ALERTS/CONFIRMS ---
+        function showAlert(message) {
+            const container = document.getElementById('app');
+            const overlay = document.createElement('div');
+            overlay.className = "fixed inset-0 modal-overlay z-[80] flex items-center justify-center p-4";
+            overlay.innerHTML = `
+                <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm text-center border border-slate-200 scale-in">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">Hinweis</h3>
+                    <p class="text-slate-600 mb-6">${message}</p>
+                    <button id="alertOkBtn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg transition">OK</button>
+                </div>
+            `;
+            container.appendChild(overlay);
+            document.getElementById('alertOkBtn').onclick = () => overlay.remove();
+        }
+
+        function showConfirm(message, onConfirm, onCancel = null) {
+            const container = document.getElementById('app');
+            const overlay = document.createElement('div');
+            overlay.className = "fixed inset-0 modal-overlay z-[80] flex items-center justify-center p-4";
+            overlay.innerHTML = `
+                <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm text-center border border-slate-200 scale-in">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">Bitte bestätigen</h3>
+                    <p class="text-slate-600 mb-6">${message}</p>
+                    <div class="flex gap-2">
+                        <button id="confirmCancelBtn" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition">Abbrechen</button>
+                        <button id="confirmOkBtn" class="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-lg transition">Bestätigen</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(overlay);
+            document.getElementById('confirmOkBtn').onclick = () => { overlay.remove(); if (onConfirm) onConfirm(); };
+            document.getElementById('confirmCancelBtn').onclick = () => { overlay.remove(); if (onCancel) onCancel(); };
+        }
+
         function requestAuth(onSuccess) {
             if (state.editorAuth) onSuccess();
             else renderPasswordModal(onSuccess);
         }
 
         function resetGameStatus() {
-            if(!confirm("Möchtest du wirklich ein neues Spiel starten?")) return;
-            const newSigns = generateSecretSigns(state.gameData.questions.length);
-            state.gameData.questions.forEach((q, i) => {
-                q.answered = false;
-                q.wrongCount = 0; 
-                q.secretSign = newSigns[i]; // Neues Spiel = Vorzeichen neu 50/50 durchgemischt
+            showConfirm("Möchtest du wirklich ein neues Spiel starten?", () => {
+                const newSigns = generateSecretSigns(state.gameData.questions.length);
+                state.gameData.questions.forEach((q, i) => {
+                    q.answered = false;
+                    q.wrongCount = 0; 
+                    q.secretSign = newSigns[i]; // Neues Spiel = Vorzeichen neu 50/50 durchgemischt
+                });
+                state.gameData.teams.forEach(t => t.score = 0);
+                state.activeTeamIndex = -1; // Reset active team
+                saveToLocal();
+                
+                // Falls Reihenfolge aktiv, starte direkt die Auslosung im Menu
+                if (state.view === 'game' && state.gameData.config.enforceOrder) {
+                    startTeamDrawAnimation();
+                } else {
+                    render();
+                }
             });
-            state.gameData.teams.forEach(t => t.score = 0);
-            saveToLocal();
-            render();
         }
 
         function exportData() {
@@ -351,13 +397,81 @@
             reader.onload = function(e) {
                 try {
                     const imported = JSON.parse(e.target.result);
-                    if (!imported.config) imported.config = { cols: 5, rows: 5, allowThreeStrikes: false, deductOnWrong: true };
+                    if (!imported.config) imported.config = { cols: 5, rows: 5, allowThreeStrikes: false, deductOnWrong: true, enforceOrder: false };
+                    if(typeof imported.config.enforceOrder === 'undefined') imported.config.enforceOrder = false;
                     state.gameData = imported;
+                    state.activeTeamIndex = -1; // Reset active team on import
                     saveToLocal();
                     render();
-                } catch (err) { alert("Fehler beim Laden."); }
+                } catch (err) { showAlert("Fehler beim Laden. Bitte überprüfe die Datei."); }
             };
             reader.readAsText(file);
+        }
+
+        function confirmAndClearAll() {
+            const container = document.getElementById('app');
+            const overlay = document.createElement('div');
+            overlay.className = "fixed inset-0 modal-overlay z-[80] flex items-center justify-center p-4";
+            overlay.innerHTML = `
+                <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md text-center border border-slate-200 scale-in">
+                    <h3 class="text-xl font-bold text-slate-800 mb-4">Alles leeren?</h3>
+                    <p class="text-slate-600 mb-6">Möchtest du das aktuelle Spiel vor dem Löschen speichern?</p>
+                    <div class="flex flex-col gap-3">
+                        <button id="btnSaveAndClear" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-md transition">Speichern & dann leeren</button>
+                        <button id="btnClearOnly" class="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md transition">Ohne Speichern leeren</button>
+                        <button id="btnCancelClear" class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition">Abbrechen</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(overlay);
+            
+            document.getElementById('btnSaveAndClear').onclick = () => {
+                exportData();
+                overlay.innerHTML = `
+                    <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm text-center border border-slate-200 scale-in">
+                        <h3 class="text-xl font-bold text-slate-800 mb-4">Wirklich leeren?</h3>
+                        <p class="text-slate-600 mb-6">Download gestartet. Bist du sicher, dass du alles löschen möchtest?</p>
+                        <div class="flex gap-2">
+                            <button id="cancelFinal" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold">Abbrechen</button>
+                            <button id="confirmFinal" class="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md">Löschen</button>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('confirmFinal').onclick = () => { clearAllDataInternal(); overlay.remove(); };
+                document.getElementById('cancelFinal').onclick = () => overlay.remove();
+            };
+            
+            document.getElementById('btnClearOnly').onclick = () => {
+                overlay.innerHTML = `
+                    <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm text-center border border-slate-200 scale-in">
+                        <h3 class="text-xl font-bold text-rose-600 mb-4">Letzte Warnung!</h3>
+                        <p class="text-slate-600 mb-6">Alle Fragen und Antworten werden unwiderruflich gelöscht. Fortfahren?</p>
+                        <div class="flex gap-2">
+                            <button id="cancelFinal2" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold">Abbrechen</button>
+                            <button id="confirmFinal2" class="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md">Löschen</button>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('confirmFinal2').onclick = () => { clearAllDataInternal(); overlay.remove(); };
+                document.getElementById('cancelFinal2').onclick = () => overlay.remove();
+            };
+            
+            document.getElementById('btnCancelClear').onclick = () => overlay.remove();
+        }
+
+        function clearAllDataInternal() {
+            state.gameData.questions.forEach(q => {
+                q.question = "";
+                q.answer = "";
+                q.answered = false;
+                q.isJoker = false;
+                q.wrongCount = 0;
+            });
+            saveToLocal();
+            render();
+            if (state.view === 'editor') {
+                 setTimeout(() => render(), 50); 
+            }
         }
 
         function renderMath() {
@@ -366,10 +480,98 @@
             }
         }
 
+        // --- TEAM REIHENFOLGE LOGIK ---
+        
+        function getValidTeamsCount() {
+            return state.gameData.teams.filter(t => t.name && t.name.trim() !== "").length;
+        }
+
+        function nextTeam() {
+            if (!state.gameData.config.enforceOrder) return;
+            
+            let nextIdx = state.activeTeamIndex + 1;
+            const totalTeams = state.gameData.teams.length;
+            
+            // Finde das nächste gültige Team (nicht leer)
+            let found = false;
+            for(let i=0; i<totalTeams; i++) {
+                if (nextIdx >= totalTeams) nextIdx = 0; // Wrap around
+                if (state.gameData.teams[nextIdx].name && state.gameData.teams[nextIdx].name.trim() !== "") {
+                    found = true;
+                    break;
+                }
+                nextIdx++;
+            }
+            
+            if (found) {
+                state.activeTeamIndex = nextIdx;
+                saveToLocal();
+            }
+        }
+
+        function startTeamDrawAnimation() {
+            const validTeamsCount = getValidTeamsCount();
+            if (validTeamsCount === 0) return; // Keine Teams zum Auslosen
+
+            state.isDrawingTeam = true;
+            render(); // Zeige Overlay mit Roulette
+
+            const drawDuration = 3000; // 3 Sekunden Auslosung
+            const intervalTime = 100;
+            let elapsed = 0;
+            let currentHighlight = 0;
+
+            const drawInterval = setInterval(() => {
+                // Finde nächstes valides Team zum Highlighten während der Animation
+                do {
+                    currentHighlight = (currentHighlight + 1) % state.gameData.teams.length;
+                } while (!state.gameData.teams[currentHighlight].name || state.gameData.teams[currentHighlight].name.trim() === "");
+                
+                // Update UI visually without triggering a full re-render (performance)
+                const rouletteDisplay = document.getElementById('rouletteDisplay');
+                if(rouletteDisplay) rouletteDisplay.textContent = state.gameData.teams[currentHighlight].name;
+
+                elapsed += intervalTime;
+                
+                if (elapsed >= drawDuration) {
+                    clearInterval(drawInterval);
+                    // Endgültiges Team zufällig bestimmen
+                    let finalTeams = [];
+                    state.gameData.teams.forEach((t, i) => { if (t.name && t.name.trim() !== "") finalTeams.push(i); });
+                    const winnerIdx = finalTeams[Math.floor(Math.random() * finalTeams.length)];
+                    
+                    if(rouletteDisplay) {
+                        rouletteDisplay.textContent = state.gameData.teams[winnerIdx].name;
+                        rouletteDisplay.classList.add('text-indigo-500', 'scale-110');
+                        playSound('correct'); // Kleiner Jingle
+                    }
+
+                    state.activeTeamIndex = winnerIdx;
+                    saveToLocal();
+
+                    setTimeout(() => {
+                        state.isDrawingTeam = false;
+                        render();
+                    }, 2000); // Zeige Ergebnis für 2 Sekunden
+                }
+            }, intervalTime);
+        }
+
         function startGame(mode) {
             state.gameMode = mode;
             state.view = 'game';
-            render();
+            
+            // Fallback: Sicherstellen, dass Vorzeichen existieren
+            state.gameData.questions.forEach(q => {
+                if (!q.secretSign) q.secretSign = Math.random() > 0.5 ? 1 : -1;
+            });
+            
+            // Wenn Reihenfolge an ist und noch kein aktives Team gesetzt (oder Spiel gerade zurückgesetzt)
+            if (state.gameData.config.enforceOrder && state.activeTeamIndex === -1 && getValidTeamsCount() > 0) {
+                startTeamDrawAnimation();
+            } else {
+                render();
+            }
         }
 
         // --- SCORE LOGIC & ANIMATION QUEUE ---
@@ -471,15 +673,23 @@
                 newScore: state.gameData.teams[targetIdx].score
             });
 
-            state.modalStep = 2; // Show solution
-            saveToLocal();
-            render();
+            if (q.isJoker) {
+                closeQuestion();
+            } else {
+                state.modalStep = 2; // Show solution
+                saveToLocal();
+                render();
+            }
         }
 
         // Lifecycle
         function closeQuestion() {
             state.currentQuestion.answered = true;
             state.currentQuestion = null;
+            
+            // Team wechseln, wenn Frage endgültig geschlossen wird
+            nextTeam();
+            
             saveToLocal();
             render();
             setTimeout(processPendingScoreUpdates, 250);
@@ -511,28 +721,36 @@
         function resizeGrid(newCols, newRows) {
             const oldCols = state.gameData.config.cols;
             const oldRows = state.gameData.config.rows;
-            if (newCols < oldCols || newRows < oldRows) { if (!confirm(`Achtung: Verkleinerung löscht äußere Fragen. Fortfahren?`)) { render(); return; } }
-            const newQuestions = [];
-            for (let r = 0; r < newRows; r++) {
-                for (let c = 0; c < newCols; c++) {
-                    const existing = state.gameData.questions.find(q => q.row === r && q.col === c);
-                    if(existing) newQuestions.push(existing);
-                    else newQuestions.push({ id: `q_${r}_${c}`, row: r, col: c, value: (r + 1) * 100, question: "", answer: "", isJoker: false, answered: false, wrongCount: 0 });
-                }
-            }
-            
-            // Wenn das Layout geändert wird, werden die Vorzeichen neu in 50/50 verteilt
-            const newSigns = generateSecretSigns(newQuestions.length);
-            newQuestions.forEach((q, i) => { q.secretSign = newSigns[i]; });
 
-            const newCategories = [];
-            for (let c = 0; c < newCols; c++) { newCategories.push(c < state.gameData.categories.length ? state.gameData.categories[c] : `Kategorie ${c+1}`); }
-            state.gameData.config.cols = newCols;
-            state.gameData.config.rows = newRows;
-            state.gameData.questions = newQuestions;
-            state.gameData.categories = newCategories;
-            saveToLocal();
-            render();
+            const executeResize = () => {
+                const newQuestions = [];
+                for (let r = 0; r < newRows; r++) {
+                    for (let c = 0; c < newCols; c++) {
+                        const existing = state.gameData.questions.find(q => q.row === r && q.col === c);
+                        if(existing) newQuestions.push(existing);
+                        else newQuestions.push({ id: `q_${r}_${c}`, row: r, col: c, value: (r + 1) * 100, question: "", answer: "", isJoker: false, answered: false, wrongCount: 0 });
+                    }
+                }
+                
+                // Vorzeichen neu 50/50 verteilen
+                const newSigns = generateSecretSigns(newQuestions.length);
+                newQuestions.forEach((q, i) => { q.secretSign = newSigns[i]; });
+
+                const newCategories = [];
+                for (let c = 0; c < newCols; c++) { newCategories.push(c < state.gameData.categories.length ? state.gameData.categories[c] : `Kategorie ${c+1}`); }
+                state.gameData.config.cols = newCols;
+                state.gameData.config.rows = newRows;
+                state.gameData.questions = newQuestions;
+                state.gameData.categories = newCategories;
+                saveToLocal();
+                render();
+            };
+
+            if (newCols < oldCols || newRows < oldRows) {
+                showConfirm(`Achtung: Verkleinerung löscht äußere Fragen. Fortfahren?`, executeResize, () => render());
+            } else {
+                executeResize();
+            }
         }
 
         function toggleConfig(key, e) { state.gameData.config[key] = e.target.checked; saveToLocal(); }
@@ -561,8 +779,8 @@
                             <span class="text-xs font-medium text-slate-400">Das normale Jeopardy</span>
                         </button>
                         <button onclick="startGame('steal_gift')" class="flat-btn bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-5 px-8 rounded-2xl shadow-xl shadow-indigo-300 text-xl tracking-wide flex-1 flex flex-col items-center justify-center gap-2">
-                            <span>KLAUEN & SCHENKEN</span>
-                            <span class="text-xs font-medium text-indigo-300">Der taktische Twist</span>
+                            <span>BAIT OR BLESS</span>
+                            <span class="text-xs font-medium text-indigo-300">Seid ihr mutig genug?</span>
                         </button>
                     </div>
 
@@ -595,7 +813,7 @@
                         <div class="max-w-3xl mx-auto space-y-12 pb-12">
                             
                             <section class="bg-indigo-50 p-8 rounded-3xl shadow-sm border border-indigo-100">
-                                <h2 class="text-3xl font-black text-indigo-700 mb-6">Neuer Modus: Klauen & Schenken</h2>
+                                <h2 class="text-3xl font-black text-indigo-700 mb-6">Neuer Modus: Bait or Bless</h2>
                                 <div class="space-y-4 text-indigo-900 text-lg leading-relaxed">
                                     <p>Ein taktischer Twist für das klassische Spiel!</p>
                                     <ul class="list-disc pl-6 space-y-2">
@@ -629,12 +847,12 @@
                                         <p class="text-slate-600 ml-8">Klicke im Menü auf EDITOR (Passwort: 1234). Klicke auf Kacheln um Fragen zu füllen. <br><span class="text-sm bg-slate-100 px-2 py-1 rounded mt-2 inline-block">Tipp: Formeln mit $$ einfügen (z.B. $$E=mc^2$$)</span></p>
                                     </div>
                                     <div>
-                                        <h3 class="text-xl font-bold text-slate-700 mb-2">💾 Speichern & Laden</h3>
-                                        <p class="text-slate-600 ml-8">Daten sind im Browser. Für den PC-Wechsel: Im Editor auf <strong>SPEICHERN</strong> klicken (lädt .json). Am Ziel-PC auf <strong>IMPORT</strong> klicken.</p>
+                                        <h3 class="text-xl font-bold text-slate-700 mb-2">🎲 Reihenfolge erzwingen</h3>
+                                        <p class="text-slate-600 ml-8">Im Editor aktivierbar. Das System lost zu Spielbeginn ein Team aus und hebt im Scoreboard hervor, welches Team an der Reihe ist, die nächste Frage auszuwählen.</p>
                                     </div>
                                     <div>
-                                        <h3 class="text-xl font-bold text-slate-700 mb-2">⚖️ Punkte Korrigieren</h3>
-                                        <p class="text-slate-600 ml-8">Während des Spiels oben auf den Punktestand eines Teams klicken für Disziplinarmaßnahmen.</p>
+                                        <h3 class="text-xl font-bold text-slate-700 mb-2">💾 Speichern & Laden</h3>
+                                        <p class="text-slate-600 ml-8">Daten sind im Browser. Für den PC-Wechsel: Im Editor auf <strong>SPEICHERN</strong> klicken (lädt .json). Am Ziel-PC auf <strong>IMPORT</strong> klicken.</p>
                                     </div>
                                 </div>
                             </section>
@@ -647,24 +865,57 @@
         function renderGame(container) {
             const cols = state.gameData.config.cols;
             const rows = state.gameData.config.rows;
+            
+            // Falls Animation läuft, Overlay zeichnen und abbrechen
+            if (state.isDrawingTeam) {
+                container.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full bg-slate-900 text-white p-6">
+                        <h2 class="text-4xl md:text-6xl font-black mb-8 text-indigo-400 uppercase tracking-widest text-center">Wer beginnt?</h2>
+                        <div class="bg-slate-800 p-8 md:p-12 rounded-3xl shadow-2xl border-4 border-indigo-500 min-w-[300px] flex items-center justify-center">
+                            <span id="rouletteDisplay" class="text-5xl md:text-7xl font-black transition-all duration-200">Mischen...</span>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+
             const header = document.createElement('div');
-            header.className = "bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm flex flex-col shrink-0";
+            header.className = "bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm flex flex-col shrink-0 relative";
+            
             const navBar = document.createElement('div');
             navBar.className = "flex justify-between items-center px-4 py-1.5 border-b border-slate-100";
-            navBar.innerHTML = `<button onclick="state.view='menu'; render()" class="flex items-center gap-2 text-slate-400 hover:text-slate-800 transition font-bold text-xs md:text-sm"><span>← MENÜ</span></button><div class="font-black text-lg tracking-widest text-slate-800 hidden md:block">JEOPARDY <span class="text-indigo-500 text-sm ml-2">${state.gameMode === 'steal_gift' ? '(Klauen & Schenken)' : '(Klassisch)'}</span></div><button onclick="resetGameStatus()" class="text-rose-400 hover:text-rose-600 text-[10px] md:text-xs font-bold uppercase tracking-wide border border-rose-200 bg-rose-50 px-2 py-1 rounded-lg">Reset</button>`;
+            navBar.innerHTML = `<button onclick="state.view='menu'; render()" class="flex items-center gap-2 text-slate-400 hover:text-slate-800 transition font-bold text-xs md:text-sm"><span>← MENÜ</span></button><div class="font-black text-lg tracking-widest text-slate-800 hidden md:block">JEOPARDY <span class="text-indigo-500 text-sm ml-2">${state.gameMode === 'steal_gift' ? '(Bait or Bless)' : '(Klassisch)'}</span></div><button onclick="resetGameStatus()" class="text-rose-400 hover:text-rose-600 text-[10px] md:text-xs font-bold uppercase tracking-wide border border-rose-200 bg-rose-50 px-2 py-1 rounded-lg">Reset</button>`;
             header.appendChild(navBar);
+
             const scoreBar = document.createElement('div');
-            scoreBar.className = "flex justify-around items-center px-2 py-2 gap-2 overflow-x-auto";
+            scoreBar.className = "flex justify-around items-center px-2 py-2 gap-2 overflow-x-auto relative";
+            
             state.gameData.teams.forEach((team, idx) => {
                 if (!team.name || team.name.trim() === "") return;
+                
+                const isActive = enforceOrder && state.activeTeamIndex === idx;
+                
                 const tDiv = document.createElement('div');
-                tDiv.className = "relative flex flex-col items-center min-w-[60px] md:min-w-[80px] group cursor-pointer select-none";
+                // Highlighter Klassen wenn aktiv
+                const activeClass = isActive ? "bg-indigo-50 border border-indigo-300 shadow-md ring-2 ring-indigo-200" : "hover:bg-slate-50";
+                
+                tDiv.className = `relative flex flex-col items-center min-w-[60px] md:min-w-[80px] p-2 rounded-xl group cursor-pointer select-none transition-all ${activeClass}`;
                 tDiv.onclick = () => openManualScoreModal(idx);
-                tDiv.innerHTML = `<div class="text-slate-400 text-[9px] md:text-[10px] uppercase font-bold tracking-widest mb-0.5 group-hover:text-indigo-500 transition">${team.name}</div><div id="score-${idx}" class="text-xl md:text-3xl font-black text-slate-800 font-mono leading-none group-hover:text-indigo-600 transition">${team.score}</div><div class="h-0.5 md:h-1 w-6 md:w-8 bg-slate-200 mt-0.5 rounded group-hover:bg-indigo-200 transition"></div>`;
+                tDiv.title = "Klicken für Lehrer-Anpassung";
+
+                let indicatorHTML = isActive ? `<div class="absolute -top-1 right-0 text-indigo-500 font-bold text-sm animate-bounce">↓</div>` : '';
+
+                tDiv.innerHTML = `
+                    ${indicatorHTML}
+                    <div class="${isActive ? 'text-indigo-600' : 'text-slate-400'} text-[9px] md:text-[10px] uppercase font-bold tracking-widest mb-0.5 group-hover:text-indigo-500 transition">${team.name}</div>
+                    <div id="score-${idx}" class="text-xl md:text-3xl font-black ${isActive ? 'text-indigo-700' : 'text-slate-800'} font-mono leading-none group-hover:text-indigo-600 transition">${team.score}</div>
+                    <div class="h-0.5 md:h-1 w-6 md:w-8 ${isActive ? 'bg-indigo-400' : 'bg-slate-200'} mt-0.5 rounded group-hover:bg-indigo-200 transition"></div>
+                `;
                 scoreBar.appendChild(tDiv);
             });
             header.appendChild(scoreBar);
             container.appendChild(header);
+
             const gridWrapper = document.createElement('div');
             gridWrapper.className = "flex-grow flex flex-col items-center justify-center p-2 bg-slate-50 overflow-hidden h-0 w-full";
             const grid = document.createElement('div');
@@ -699,14 +950,35 @@
             const rows = state.gameData.config.rows;
             const threeStrikes = state.gameData.config.allowThreeStrikes;
             const deductWrong = state.gameData.config.deductOnWrong;
+            const enforceOrder = state.gameData.config.enforceOrder;
+            
             const header = document.createElement('div');
             header.className = "bg-white border-b border-slate-200 p-4 shadow-sm z-30 sticky top-0";
-            header.innerHTML = `<div class="flex justify-between items-center mb-4"><button onclick="state.view='menu'; render()" class="text-slate-500 font-bold">← Zurück</button><div class="flex gap-2"><button onclick="confirmAndClearAll()" class="bg-rose-50 text-rose-600 border border-rose-200 px-3 py-1 rounded-lg text-xs font-bold">Alles leeren</button><button onclick="exportData()" class="bg-slate-900 text-white px-3 py-1 rounded-lg text-xs font-bold">Speichern</button><input type="file" id="fIn" class="hidden" onchange="importData(event)"><button onclick="document.getElementById('fIn').click()" class="bg-slate-100 text-slate-600 px-3 py-1 rounded-lg text-xs font-bold">Import</button></div></div><div class="flex gap-4 justify-center bg-slate-50 p-2 rounded-lg border border-slate-200 items-center flex-wrap"><div class="flex items-center gap-2"><span class="text-xs font-bold text-slate-400">SPALTEN:</span><select id="cSel" class="font-bold bg-transparent outline-none">${[2,3,4,5,6].map(n=>`<option ${n===cols?'selected':''}>${n}</option>`).join('')}</select></div><div class="flex items-center gap-2"><span class="text-xs font-bold text-slate-400">ZEILEN:</span><select id="rSel" class="font-bold bg-transparent outline-none">${[2,3,4,5,6,7,8].map(n=>`<option ${n===rows?'selected':''}>${n}</option>`).join('')}</select></div><div class="w-px h-6 bg-slate-300 mx-2"></div><label class="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none"><input type="checkbox" id="threeStrikes" ${threeStrikes ? 'checked' : ''} class="w-4 h-4 accent-indigo-600 rounded"> 3 Fehlversuche erlauben</label><label class="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none ml-2"><input type="checkbox" id="deductWrong" ${deductWrong ? 'checked' : ''} class="w-4 h-4 accent-rose-600 rounded"> Minuspunkte bei falscher Antwort</label></div>`;
+            header.innerHTML = `
+                <div class="flex justify-between items-center mb-4">
+                    <button onclick="state.view='menu'; render()" class="text-slate-500 font-bold">← Zurück</button>
+                    <div class="flex gap-2">
+                        <button onclick="confirmAndClearAll()" class="bg-rose-50 text-rose-600 border border-rose-200 px-3 py-1 rounded-lg text-xs font-bold">Alles leeren</button>
+                        <button onclick="exportData()" class="bg-slate-900 text-white px-3 py-1 rounded-lg text-xs font-bold">Speichern</button>
+                        <input type="file" id="fIn" class="hidden" onchange="importData(event)"><button onclick="document.getElementById('fIn').click()" class="bg-slate-100 text-slate-600 px-3 py-1 rounded-lg text-xs font-bold">Import</button>
+                    </div>
+                </div>
+                <div class="flex gap-4 justify-center bg-slate-50 p-2 rounded-lg border border-slate-200 items-center flex-wrap">
+                    <div class="flex items-center gap-2"><span class="text-xs font-bold text-slate-400">SPALTEN:</span><select id="cSel" class="font-bold bg-transparent outline-none">${[2,3,4,5,6].map(n=>`<option ${n===cols?'selected':''}>${n}</option>`).join('')}</select></div>
+                    <div class="flex items-center gap-2"><span class="text-xs font-bold text-slate-400">ZEILEN:</span><select id="rSel" class="font-bold bg-transparent outline-none">${[2,3,4,5,6,7,8].map(n=>`<option ${n===rows?'selected':''}>${n}</option>`).join('')}</select></div>
+                    <div class="w-px h-6 bg-slate-300 mx-2"></div>
+                    <label class="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none"><input type="checkbox" id="threeStrikes" ${threeStrikes ? 'checked' : ''} class="w-4 h-4 accent-indigo-600 rounded"> 3 Fehlversuche erlauben</label>
+                    <label class="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none ml-2"><input type="checkbox" id="deductWrong" ${deductWrong ? 'checked' : ''} class="w-4 h-4 accent-rose-600 rounded"> Minuspunkte bei Falsch</label>
+                    <div class="w-px h-6 bg-slate-300 mx-2"></div>
+                    <label class="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none" title="Lost zu Beginn ein Team aus und markiert, wer an der Reihe ist."><input type="checkbox" id="enforceOrder" ${enforceOrder ? 'checked' : ''} class="w-4 h-4 accent-emerald-600 rounded"> Feste Team-Reihenfolge</label>
+                </div>
+            `;
             container.appendChild(header);
             document.getElementById('cSel').onchange = (e) => resizeGrid(parseInt(e.target.value), rows);
             document.getElementById('rSel').onchange = (e) => resizeGrid(cols, parseInt(e.target.value));
             document.getElementById('threeStrikes').onchange = (e) => toggleConfig('allowThreeStrikes', e);
             document.getElementById('deductWrong').onchange = (e) => toggleConfig('deductOnWrong', e);
+            document.getElementById('enforceOrder').onchange = (e) => toggleConfig('enforceOrder', e);
 
             const content = document.createElement('div');
             content.className = "p-6 overflow-auto bg-slate-100 flex-grow flex flex-col items-center gap-6";
@@ -753,20 +1025,21 @@
             content.className = "bg-white p-8 md:p-10 rounded-3xl shadow-2xl max-w-5xl w-full text-center border border-slate-100 scale-in flex flex-col gap-4 min-h-[50vh] max-h-[90vh] overflow-y-auto justify-center relative";
             content.innerHTML = `<div class="absolute top-0 left-0 w-full h-3 ${theme.header}"></div>`;
 
-            // Immer Header & Frage oben anzeigen
-            content.innerHTML += `
-                <div class="flex flex-col items-center justify-center mb-6 border-b border-slate-100 pb-4">
-                    <div class="${theme.text} font-bold text-lg uppercase tracking-widest opacity-70 mb-2">${state.gameData.categories[q.col]} · ${q.value}</div>
-                    <div class="text-slate-800 text-2xl md:text-4xl font-bold leading-tight max-w-4xl">${q.question || "<span class='text-slate-300 italic'>(Keine Frage hinterlegt)</span>"}</div>
-                </div>
-            `;
+            // Immer Header & Frage oben anzeigen (außer bei der initialen Joker-Karte)
+            if (!q.isJoker || state.modalStep > 0) {
+                content.innerHTML += `
+                    <div class="flex flex-col items-center justify-center mb-6 border-b border-slate-100 pb-4">
+                        <div class="${theme.text} font-bold text-lg uppercase tracking-widest opacity-70 ${q.isJoker ? '' : 'mb-2'}">${state.gameData.categories[q.col]} · ${q.value}</div>
+                        ${!q.isJoker ? `<div class="text-slate-800 text-2xl md:text-4xl font-bold leading-tight max-w-4xl">${q.question || "<span class='text-slate-300 italic'>(Keine Frage hinterlegt)</span>"}</div>` : ''}
+                    </div>
+                `;
+            }
 
-            // JOKER HANDLING
+            // JOKER HANDLING (Initiale Ansicht)
             if (q.isJoker && state.modalStep === 0) {
                 content.innerHTML += `
                     <div class="flex-grow flex flex-col items-center justify-center py-4">
-                        <div class="joker-bg text-6xl md:text-8xl font-black mb-2 tracking-tighter">JOKER!</div>
-                        <div class="text-slate-500 text-xl font-bold">Punkte geschenkt!</div>
+                        <div class="joker-bg text-6xl md:text-8xl font-black tracking-tighter">JOKER!</div>
                     </div>
                     <button id="jokerProceed" class="mt-auto self-center bg-yellow-400 hover:bg-yellow-300 text-yellow-900 font-bold py-3 px-8 rounded-full text-lg shadow-lg transition transform hover:-translate-y-1">
                         WEITER
@@ -807,6 +1080,10 @@
                 else if(state.gameMode === 'steal_gift') titleText = "Wer hat die richtige Antwort gegeben?";
                 else titleText = "Punkte vergeben:";
 
+                // Wenn enforceOrder an ist, bestimmen wir den "acting" automatisch für Klauen&Schenken Step 10
+                // WICHTIG: Die Buttons ändern wir NUR, wenn enforceOrder aktiv ist. Wenn nicht, bleibt die freie Wahl.
+                const enforceOrder = state.gameData.config.enforceOrder;
+
                 content.innerHTML += `
                     <div class="text-slate-400 font-bold text-xs md:text-sm uppercase tracking-widest mb-2">${titleText}</div>
                     ${strikesHTML}
@@ -816,33 +1093,60 @@
                             ${state.gameData.teams.map((t, idx) => {
                                 if (!t.name || t.name.trim() === "") return ""; 
                                 
-                                // Joker
+                                // Joker (Freie Wahl)
                                 if (q.isJoker) {
                                     const action = state.gameMode === 'steal_gift' ? `sgSelectTargetTeam(${idx})` : `awardPoints(${idx}, ${q.value})`;
                                     return `<button onclick="${action}" class="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border border-yellow-300 py-3 rounded-xl transition font-bold shadow-sm">${t.name}</button>`;
                                 }
 
-                                // Klauen & Schenken: Nur Auswählen, wer richtig lag
+                                // Klauen & Schenken
                                 if (state.gameMode === 'steal_gift') {
-                                    if (allowThreeStrikes) {
-                                        return `<div class="flex gap-1"><button onclick="sgSelectActingTeam(${idx})" class="flex-grow bg-white hover:bg-indigo-50 text-slate-600 border border-slate-200 py-2 px-2 md:py-3 md:px-4 rounded-l-xl transition font-bold shadow-sm text-sm md:text-base">${t.name}</button><button onclick="registerWrongAnswer(${idx}, ${q.value})" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-2 px-2 md:py-3 rounded-r-xl transition font-bold shadow-sm" title="Falsch">✕</button></div>`;
+                                    if (enforceOrder) {
+                                        // Nur das aktive Team darf Punkte verteilen/Antwort geben
+                                        if (state.activeTeamIndex === idx) {
+                                            if (allowThreeStrikes) {
+                                                return `<div class="flex gap-1"><button onclick="sgSelectActingTeam(${idx})" class="flex-grow bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border border-indigo-300 py-2 px-2 md:py-3 md:px-4 rounded-l-xl transition font-bold shadow-sm text-sm md:text-base ring-2 ring-indigo-500">${t.name} (Am Zug)</button><button onclick="registerWrongAnswer(${idx}, ${q.value})" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-2 px-2 md:py-3 rounded-r-xl transition font-bold shadow-sm" title="Falsch">✕</button></div>`;
+                                            } else {
+                                                return `<button onclick="sgSelectActingTeam(${idx})" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border border-indigo-300 py-2 px-2 md:py-3 md:px-4 rounded-xl transition font-bold shadow-sm text-sm md:text-base ring-2 ring-indigo-500">${t.name} (Am Zug)</button>`;
+                                            }
+                                        } else {
+                                            return `<div class="bg-slate-50 text-slate-300 border border-slate-100 py-2 px-2 md:py-3 md:px-4 rounded-xl font-bold text-sm md:text-base cursor-not-allowed flex items-center justify-center">${t.name}</div>`;
+                                        }
                                     } else {
-                                        return `<button onclick="sgSelectActingTeam(${idx})" class="bg-white hover:bg-indigo-50 text-slate-600 border border-slate-200 py-2 px-2 md:py-3 md:px-4 rounded-xl transition font-bold shadow-sm text-sm md:text-base">${t.name}</button>`;
+                                        // FREIE WAHL: Jeder kann die richtige Antwort gegeben haben
+                                        if (allowThreeStrikes) {
+                                            return `<div class="flex gap-1"><button onclick="sgSelectActingTeam(${idx})" class="flex-grow bg-white hover:bg-indigo-50 text-slate-600 border border-slate-200 py-2 px-2 md:py-3 md:px-4 rounded-l-xl transition font-bold shadow-sm text-sm md:text-base">${t.name}</button><button onclick="registerWrongAnswer(${idx}, ${q.value})" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-2 px-2 md:py-3 rounded-r-xl transition font-bold shadow-sm" title="Falsch">✕</button></div>`;
+                                        } else {
+                                            return `<button onclick="sgSelectActingTeam(${idx})" class="bg-white hover:bg-indigo-50 text-slate-600 border border-slate-200 py-2 px-2 md:py-3 md:px-4 rounded-xl transition font-bold shadow-sm text-sm md:text-base">${t.name}</button>`;
+                                        }
                                     }
                                 } 
                                 // Klassisch
                                 else {
-                                    if (allowThreeStrikes) {
-                                        return `<div class="flex gap-1"><button onclick="awardPoints(${idx}, ${q.value})" class="flex-grow bg-white hover:bg-emerald-50 text-slate-600 border border-slate-200 py-2 px-2 md:py-3 md:px-4 rounded-l-xl transition font-bold shadow-sm text-sm md:text-base">${t.name}</button><button onclick="registerWrongAnswer(${idx}, ${q.value})" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-2 px-2 md:py-3 rounded-r-xl transition font-bold shadow-sm" title="Falsch">✕</button></div>`;
+                                    if (enforceOrder) {
+                                         if (state.activeTeamIndex === idx) {
+                                            if (allowThreeStrikes) {
+                                                return `<div class="flex gap-1"><button onclick="awardPoints(${idx}, ${q.value})" class="flex-grow bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border border-indigo-300 py-2 px-2 md:py-3 md:px-4 rounded-l-xl transition font-bold shadow-sm text-sm md:text-base ring-2 ring-indigo-500">${t.name} (Am Zug)</button><button onclick="registerWrongAnswer(${idx}, ${q.value})" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-2 px-2 md:py-3 rounded-r-xl transition font-bold shadow-sm" title="Falsch">✕</button></div>`;
+                                            } else {
+                                                return `<button onclick="awardPoints(${idx}, ${q.value})" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border border-indigo-300 py-2 px-2 md:py-3 md:px-4 rounded-xl transition font-bold shadow-sm text-sm md:text-base ring-2 ring-indigo-500">${t.name} (Am Zug)</button>`;
+                                            }
+                                        } else {
+                                            return `<div class="bg-slate-50 text-slate-300 border border-slate-100 py-2 px-2 md:py-3 md:px-4 rounded-xl font-bold text-sm md:text-base cursor-not-allowed flex items-center justify-center">${t.name}</div>`;
+                                        }
                                     } else {
-                                        return `<button onclick="awardPoints(${idx}, ${q.value})" class="bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 py-2 px-2 md:py-3 md:px-4 rounded-xl transition font-bold shadow-sm text-sm md:text-base">${t.name}</button>`;
+                                        // FREIE WAHL
+                                        if (allowThreeStrikes) {
+                                            return `<div class="flex gap-1"><button onclick="awardPoints(${idx}, ${q.value})" class="flex-grow bg-white hover:bg-emerald-50 text-slate-600 border border-slate-200 py-2 px-2 md:py-3 md:px-4 rounded-l-xl transition font-bold shadow-sm text-sm md:text-base">${t.name}</button><button onclick="registerWrongAnswer(${idx}, ${q.value})" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-2 px-2 md:py-3 rounded-r-xl transition font-bold shadow-sm" title="Falsch">✕</button></div>`;
+                                        } else {
+                                            return `<button onclick="awardPoints(${idx}, ${q.value})" class="bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 py-2 px-2 md:py-3 md:px-4 rounded-xl transition font-bold shadow-sm text-sm md:text-base">${t.name}</button>`;
+                                        }
                                     }
                                 }
                             }).join('')}
                         </div>
-                        <div class="grid grid-cols-3 gap-3 border-t border-slate-200 pt-4 mt-2">
+                        <div class="grid ${q.isJoker ? 'grid-cols-2' : 'grid-cols-3'} gap-3 border-t border-slate-200 pt-4 mt-2">
                              <button onclick="pauseQuestion()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 rounded-xl transition text-sm uppercase tracking-wide"> Zurück </button>
-                             <button onclick="state.modalStep = 2; render()" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold py-3 rounded-xl transition text-sm uppercase tracking-wide"> Lösung </button>
+                             ${!q.isJoker ? `<button onclick="state.modalStep = 2; render()" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold py-3 rounded-xl transition text-sm uppercase tracking-wide"> Lösung </button>` : ''}
                              <button onclick="playSound('wrong'); closeQuestion()" class="bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold py-3 rounded-xl transition text-sm uppercase tracking-wide"> Niemand </button>
                         </div>
                     </div>
@@ -889,7 +1193,7 @@
                     </div>
                     <div class="mt-auto w-full border-t border-slate-200 pt-6">
                         <button onclick="applySgPointsAndSolution()" class="${isPositive ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-rose-500 hover:bg-rose-600'} text-white font-bold py-4 px-12 rounded-full text-xl shadow-lg transition transform hover:-translate-y-1">
-                            Punkte verbuchen & Lösung zeigen
+                            ${q.isJoker ? 'Punkte verbuchen & Schließen' : 'Punkte verbuchen & Lösung zeigen'}
                         </button>
                     </div>
                 `;
@@ -921,7 +1225,7 @@
 
         function openQuestionModal(question) {
             if (!question.question && !question.isJoker) {
-                alert("Dieses Feld ist noch leer! Bitte im Editor befüllen.");
+                showAlert("Dieses Feld ist noch leer! Bitte im Editor befüllen.");
                 return;
             }
             if(typeof question.wrongCount === 'undefined') question.wrongCount = 0;
