@@ -14,9 +14,7 @@
                 displayMath: [['$$', '$$'], ['\\[', '\\]']],
                 processEscapes: true
             },
-            svg: {
-                fontCache: 'global'
-            }
+            svg: { fontCache: 'global' }
         };
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
@@ -28,49 +26,38 @@
             font-family: 'Inter', sans-serif;
             background-color: #f8fafc;
             color: #1e293b;
-            overflow: hidden; /* Wichtig: Kein Scrollen auf Body-Ebene */
+            overflow: hidden; 
             height: 100vh;
             width: 100vw;
         }
 
-        /* Modern Flat Utility Classes */
-        .flat-btn {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .flat-btn:active {
-            transform: scale(0.96);
-        }
+        .flat-btn { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+        .flat-btn:active { transform: scale(0.96); }
 
         .modal-overlay {
             background-color: rgba(248, 250, 252, 0.95);
             backdrop-filter: blur(8px);
         }
 
-        /* Animation classes */
-        .scale-in {
-            animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-        }
-
+        .scale-in { animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
         @keyframes scaleIn {
             from { transform: scale(0.9); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
         }
 
-        /* Score Animation Highlight */
         .score-update-positive {
-            color: #10b981; /* Emerald 500 */
+            color: #10b981; 
             transform: scale(1.1);
             text-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
             transition: all 0.2s ease;
         }
         .score-update-negative {
-            color: #f43f5e; /* Rose 500 */
+            color: #f43f5e; 
             transform: scale(1.1);
             text-shadow: 0 0 15px rgba(244, 63, 94, 0.3);
             transition: all 0.2s ease;
         }
 
-        /* Floating Points Animation */
         @keyframes floatUp {
             0% { opacity: 0; transform: translate(-50%, 0) scale(0.5); }
             20% { opacity: 1; transform: translate(-50%, -20px) scale(1.2); }
@@ -79,8 +66,7 @@
 
         .score-float {
             position: absolute;
-            top: 0;
-            left: 50%;
+            top: 0; left: 50%;
             font-family: 'Inter', sans-serif;
             font-weight: 900;
             font-size: 2rem;
@@ -99,7 +85,6 @@
             border: 2px dashed #cbd5e1;
         }
 
-        /* Joker Animation */
         @keyframes rainbow { 
             0%{background-position:0% 50%}
             50%{background-position:100% 50%}
@@ -114,10 +99,9 @@
             color: transparent;
         }
 
-        /* Das Grid füllt nun immer 100% der Höhe des Containers */
         .game-grid {
             display: grid;
-            gap: 0.5rem; /* Etwas kleinerer Abstand um Platz zu sparen */
+            gap: 0.5rem; 
             width: 100%;
             height: 100%; 
             max-width: 100%;
@@ -145,23 +129,17 @@
             pointer-events: none;
         }
         
-        /* MathJax adjustments */
-        mjx-container {
-            font-size: 110% !important;
-        }
+        mjx-container { font-size: 110% !important; }
     </style>
 </head>
 <body class="h-screen w-screen flex flex-col text-slate-800 bg-slate-50 overflow-hidden">
 
-    <!-- Sound Effects - HIER DATEINAMEN ANPASSEN -->
+    <!-- Sound Effects -->
     <audio id="sound-correct" src="richtig.wav" preload="auto"></audio>
     <audio id="sound-wrong" src="falsch.mp3" preload="auto"></audio>
     <audio id="sound-win" src="gewonnen.mp3" preload="auto"></audio>
 
-    <!-- App Container -->
-    <div id="app" class="flex-grow flex flex-col h-full w-full overflow-hidden">
-        <!-- Content will be injected by JavaScript -->
-    </div>
+    <div id="app" class="flex-grow flex flex-col h-full w-full overflow-hidden"></div>
 
     <script>
         // --- KONFIGURATION & STATE ---
@@ -176,7 +154,6 @@
             { name: 'fuchsia', header: 'bg-fuchsia-500', bg: 'bg-fuchsia-200', text: 'text-fuchsia-900', hover: 'hover:bg-fuchsia-300' }
         ];
 
-        // Funktion um 50% / 50% Vorzeichen zu generieren (und zu mischen)
         function generateSecretSigns(count) {
             let signs = [];
             let half = Math.floor(count / 2);
@@ -184,10 +161,8 @@
                 signs.push(1);
                 signs.push(-1);
             }
-            if (count % 2 !== 0) {
-                signs.push(Math.random() > 0.5 ? 1 : -1);
-            }
-            // Mischen (Fisher-Yates Shuffle)
+            if (count % 2 !== 0) signs.push(Math.random() > 0.5 ? 1 : -1);
+            
             for (let i = signs.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [signs[i], signs[j]] = [signs[j], signs[i]];
@@ -205,7 +180,7 @@
                     rows: rows,
                     allowThreeStrikes: false,
                     deductOnWrong: true, 
-                    enforceOrder: false // NEU: Feste Team-Reihenfolge
+                    enforceOrder: false
                 },
                 categories: Array(cols).fill("").map((_, i) => `Kategorie ${i+1}`),
                 teams: [
@@ -218,16 +193,9 @@
                     const row = Math.floor(index / cols);
                     const col = index % cols;
                     return {
-                        id: `q_${row}_${col}`,
-                        row: row,
-                        col: col,
-                        value: (row + 1) * 100,
-                        question: "",
-                        answer: "",
-                        isJoker: false,
-                        answered: false,
-                        wrongCount: 0,
-                        secretSign: secretSigns[index] // 50/50 verteilt
+                        id: `q_${row}_${col}`, row: row, col: col, value: (row + 1) * 100,
+                        question: "", answer: "", isJoker: false, answered: false, wrongCount: 0,
+                        secretSign: secretSigns[index] 
                     };
                 })
             };
@@ -235,17 +203,18 @@
 
         let state = {
             view: 'menu', 
-            gameMode: 'classic', // 'classic' oder 'steal_gift'
+            gameMode: 'classic', // 'classic' oder 'bait_bless'
             gameData: createInitialData(),
             currentQuestion: null,
-            modalStep: 0, // 0: Frage, 1: Bewertung, 2: Lösung, 10/11/12: Steal&Gift Steps
+            modalStep: 0, // 0: Frage, 1: Bewertung, 2: Lösung, 13: Punkteanzeige, 11/12: Bait or Bless
             showAnswer: false,
             editorAuth: false,
             pendingScoreUpdates: [],
+            pendingOutcome: null,
             sgActingTeam: -1,
             sgTargetTeam: -1,
-            activeTeamIndex: -1, // NEU: Welches Team ist gerade an der Reihe
-            isDrawingTeam: false // NEU: Zeigt Animation beim Start
+            activeTeamIndex: -1,
+            isDrawingTeam: false
         };
 
         // --- SOUND SYSTEM ---
@@ -259,9 +228,7 @@
             if (audioEl) {
                 audioEl.currentTime = 0;
                 const playPromise = audioEl.play();
-                if (playPromise !== undefined) {
-                    playPromise.catch(error => console.log("Audio Fehler:", error));
-                }
+                if (playPromise !== undefined) playPromise.catch(e => console.log("Audio:", e));
             }
         }
 
@@ -280,14 +247,12 @@
                     setTimeout(() => obj.classList.remove('score-update-positive', 'score-update-negative'), 500);
                 }
             };
-            
             if (end > start) obj.classList.add('score-update-positive');
             else obj.classList.add('score-update-negative');
-            
             window.requestAnimationFrame(step);
         }
 
-        // --- HILFSFUNKTIONEN ---
+        // --- CORE LOGIC ---
         function getTheme(colIndex) { return COLOR_THEMES[colIndex % COLOR_THEMES.length]; }
 
         function saveToLocal() { localStorage.setItem('jeopardyDataV3', JSON.stringify(state.gameData)); }
@@ -297,6 +262,7 @@
             if (stored) {
                 const parsed = JSON.parse(stored);
                 if(!parsed.config) parsed.config = { cols: 5, rows: 5, allowThreeStrikes: false, deductOnWrong: true, enforceOrder: false };
+                
                 if(typeof parsed.config.allowThreeStrikes === 'undefined') parsed.config.allowThreeStrikes = false;
                 if(typeof parsed.config.deductOnWrong === 'undefined') parsed.config.deductOnWrong = true;
                 if(typeof parsed.config.enforceOrder === 'undefined') parsed.config.enforceOrder = false;
@@ -310,167 +276,10 @@
                 
                 if (needsSigns) {
                     const newSigns = generateSecretSigns(parsed.questions.length);
-                    parsed.questions.forEach((q, i) => {
-                        if (typeof q.secretSign === 'undefined') q.secretSign = newSigns[i];
-                    });
+                    parsed.questions.forEach((q, i) => { if (typeof q.secretSign === 'undefined') q.secretSign = newSigns[i]; });
                 }
 
                 state.gameData = parsed;
-            }
-        }
-
-        // --- CUSTOM MODALS FÜR ALERTS/CONFIRMS ---
-        function showAlert(message) {
-            const container = document.getElementById('app');
-            const overlay = document.createElement('div');
-            overlay.className = "fixed inset-0 modal-overlay z-[80] flex items-center justify-center p-4";
-            overlay.innerHTML = `
-                <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm text-center border border-slate-200 scale-in">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">Hinweis</h3>
-                    <p class="text-slate-600 mb-6">${message}</p>
-                    <button id="alertOkBtn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg transition">OK</button>
-                </div>
-            `;
-            container.appendChild(overlay);
-            document.getElementById('alertOkBtn').onclick = () => overlay.remove();
-        }
-
-        function showConfirm(message, onConfirm, onCancel = null) {
-            const container = document.getElementById('app');
-            const overlay = document.createElement('div');
-            overlay.className = "fixed inset-0 modal-overlay z-[80] flex items-center justify-center p-4";
-            overlay.innerHTML = `
-                <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm text-center border border-slate-200 scale-in">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">Bitte bestätigen</h3>
-                    <p class="text-slate-600 mb-6">${message}</p>
-                    <div class="flex gap-2">
-                        <button id="confirmCancelBtn" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition">Abbrechen</button>
-                        <button id="confirmOkBtn" class="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-lg transition">Bestätigen</button>
-                    </div>
-                </div>
-            `;
-            container.appendChild(overlay);
-            document.getElementById('confirmOkBtn').onclick = () => { overlay.remove(); if (onConfirm) onConfirm(); };
-            document.getElementById('confirmCancelBtn').onclick = () => { overlay.remove(); if (onCancel) onCancel(); };
-        }
-
-        function requestAuth(onSuccess) {
-            if (state.editorAuth) onSuccess();
-            else renderPasswordModal(onSuccess);
-        }
-
-        function resetGameStatus() {
-            showConfirm("Möchtest du wirklich ein neues Spiel starten?", () => {
-                const newSigns = generateSecretSigns(state.gameData.questions.length);
-                state.gameData.questions.forEach((q, i) => {
-                    q.answered = false;
-                    q.wrongCount = 0; 
-                    q.secretSign = newSigns[i]; // Neues Spiel = Vorzeichen neu 50/50 durchgemischt
-                });
-                state.gameData.teams.forEach(t => t.score = 0);
-                state.activeTeamIndex = -1; // Reset active team
-                saveToLocal();
-                
-                // Falls Reihenfolge aktiv, starte direkt die Auslosung im Menu
-                if (state.view === 'game' && state.gameData.config.enforceOrder) {
-                    startTeamDrawAnimation();
-                } else {
-                    render();
-                }
-            });
-        }
-
-        function exportData() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.gameData));
-            const downloadAnchorNode = document.createElement('a');
-            downloadAnchorNode.setAttribute("href", dataStr);
-            downloadAnchorNode.setAttribute("download", "jeopardy_daten.json");
-            document.body.appendChild(downloadAnchorNode);
-            downloadAnchorNode.click();
-            downloadAnchorNode.remove();
-        }
-
-        function importData(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const imported = JSON.parse(e.target.result);
-                    if (!imported.config) imported.config = { cols: 5, rows: 5, allowThreeStrikes: false, deductOnWrong: true, enforceOrder: false };
-                    if(typeof imported.config.enforceOrder === 'undefined') imported.config.enforceOrder = false;
-                    state.gameData = imported;
-                    state.activeTeamIndex = -1; // Reset active team on import
-                    saveToLocal();
-                    render();
-                } catch (err) { showAlert("Fehler beim Laden. Bitte überprüfe die Datei."); }
-            };
-            reader.readAsText(file);
-        }
-
-        function confirmAndClearAll() {
-            const container = document.getElementById('app');
-            const overlay = document.createElement('div');
-            overlay.className = "fixed inset-0 modal-overlay z-[80] flex items-center justify-center p-4";
-            overlay.innerHTML = `
-                <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md text-center border border-slate-200 scale-in">
-                    <h3 class="text-xl font-bold text-slate-800 mb-4">Alles leeren?</h3>
-                    <p class="text-slate-600 mb-6">Möchtest du das aktuelle Spiel vor dem Löschen speichern?</p>
-                    <div class="flex flex-col gap-3">
-                        <button id="btnSaveAndClear" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-md transition">Speichern & dann leeren</button>
-                        <button id="btnClearOnly" class="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md transition">Ohne Speichern leeren</button>
-                        <button id="btnCancelClear" class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition">Abbrechen</button>
-                    </div>
-                </div>
-            `;
-            container.appendChild(overlay);
-            
-            document.getElementById('btnSaveAndClear').onclick = () => {
-                exportData();
-                overlay.innerHTML = `
-                    <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm text-center border border-slate-200 scale-in">
-                        <h3 class="text-xl font-bold text-slate-800 mb-4">Wirklich leeren?</h3>
-                        <p class="text-slate-600 mb-6">Download gestartet. Bist du sicher, dass du alles löschen möchtest?</p>
-                        <div class="flex gap-2">
-                            <button id="cancelFinal" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold">Abbrechen</button>
-                            <button id="confirmFinal" class="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md">Löschen</button>
-                        </div>
-                    </div>
-                `;
-                document.getElementById('confirmFinal').onclick = () => { clearAllDataInternal(); overlay.remove(); };
-                document.getElementById('cancelFinal').onclick = () => overlay.remove();
-            };
-            
-            document.getElementById('btnClearOnly').onclick = () => {
-                overlay.innerHTML = `
-                    <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm text-center border border-slate-200 scale-in">
-                        <h3 class="text-xl font-bold text-rose-600 mb-4">Letzte Warnung!</h3>
-                        <p class="text-slate-600 mb-6">Alle Fragen und Antworten werden unwiderruflich gelöscht. Fortfahren?</p>
-                        <div class="flex gap-2">
-                            <button id="cancelFinal2" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold">Abbrechen</button>
-                            <button id="confirmFinal2" class="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md">Löschen</button>
-                        </div>
-                    </div>
-                `;
-                document.getElementById('confirmFinal2').onclick = () => { clearAllDataInternal(); overlay.remove(); };
-                document.getElementById('cancelFinal2').onclick = () => overlay.remove();
-            };
-            
-            document.getElementById('btnCancelClear').onclick = () => overlay.remove();
-        }
-
-        function clearAllDataInternal() {
-            state.gameData.questions.forEach(q => {
-                q.question = "";
-                q.answer = "";
-                q.answered = false;
-                q.isJoker = false;
-                q.wrongCount = 0;
-            });
-            saveToLocal();
-            render();
-            if (state.view === 'editor') {
-                 setTimeout(() => render(), 50); 
             }
         }
 
@@ -481,28 +290,24 @@
         }
 
         // --- TEAM REIHENFOLGE LOGIK ---
-        
         function getValidTeamsCount() {
             return state.gameData.teams.filter(t => t.name && t.name.trim() !== "").length;
         }
 
         function nextTeam() {
             if (!state.gameData.config.enforceOrder) return;
-            
             let nextIdx = state.activeTeamIndex + 1;
             const totalTeams = state.gameData.teams.length;
             
-            // Finde das nächste gültige Team (nicht leer)
             let found = false;
             for(let i=0; i<totalTeams; i++) {
-                if (nextIdx >= totalTeams) nextIdx = 0; // Wrap around
+                if (nextIdx >= totalTeams) nextIdx = 0;
                 if (state.gameData.teams[nextIdx].name && state.gameData.teams[nextIdx].name.trim() !== "") {
                     found = true;
                     break;
                 }
                 nextIdx++;
             }
-            
             if (found) {
                 state.activeTeamIndex = nextIdx;
                 saveToLocal();
@@ -511,23 +316,21 @@
 
         function startTeamDrawAnimation() {
             const validTeamsCount = getValidTeamsCount();
-            if (validTeamsCount === 0) return; // Keine Teams zum Auslosen
+            if (validTeamsCount === 0) return;
 
             state.isDrawingTeam = true;
-            render(); // Zeige Overlay mit Roulette
+            render();
 
-            const drawDuration = 3000; // 3 Sekunden Auslosung
+            const drawDuration = 3000; 
             const intervalTime = 100;
             let elapsed = 0;
             let currentHighlight = 0;
 
             const drawInterval = setInterval(() => {
-                // Finde nächstes valides Team zum Highlighten während der Animation
                 do {
                     currentHighlight = (currentHighlight + 1) % state.gameData.teams.length;
                 } while (!state.gameData.teams[currentHighlight].name || state.gameData.teams[currentHighlight].name.trim() === "");
                 
-                // Update UI visually without triggering a full re-render (performance)
                 const rouletteDisplay = document.getElementById('rouletteDisplay');
                 if(rouletteDisplay) rouletteDisplay.textContent = state.gameData.teams[currentHighlight].name;
 
@@ -535,7 +338,6 @@
                 
                 if (elapsed >= drawDuration) {
                     clearInterval(drawInterval);
-                    // Endgültiges Team zufällig bestimmen
                     let finalTeams = [];
                     state.gameData.teams.forEach((t, i) => { if (t.name && t.name.trim() !== "") finalTeams.push(i); });
                     const winnerIdx = finalTeams[Math.floor(Math.random() * finalTeams.length)];
@@ -543,7 +345,7 @@
                     if(rouletteDisplay) {
                         rouletteDisplay.textContent = state.gameData.teams[winnerIdx].name;
                         rouletteDisplay.classList.add('text-indigo-500', 'scale-110');
-                        playSound('correct'); // Kleiner Jingle
+                        playSound('correct'); 
                     }
 
                     state.activeTeamIndex = winnerIdx;
@@ -552,7 +354,7 @@
                     setTimeout(() => {
                         state.isDrawingTeam = false;
                         render();
-                    }, 2000); // Zeige Ergebnis für 2 Sekunden
+                    }, 2000); 
                 }
             }, intervalTime);
         }
@@ -561,17 +363,34 @@
             state.gameMode = mode;
             state.view = 'game';
             
-            // Fallback: Sicherstellen, dass Vorzeichen existieren
-            state.gameData.questions.forEach(q => {
-                if (!q.secretSign) q.secretSign = Math.random() > 0.5 ? 1 : -1;
-            });
+            const newSigns = generateSecretSigns(state.gameData.questions.length);
+            state.gameData.questions.forEach((q, i) => { q.secretSign = newSigns[i]; });
             
-            // Wenn Reihenfolge an ist und noch kein aktives Team gesetzt (oder Spiel gerade zurückgesetzt)
             if (state.gameData.config.enforceOrder && state.activeTeamIndex === -1 && getValidTeamsCount() > 0) {
                 startTeamDrawAnimation();
             } else {
                 render();
             }
+        }
+
+        function resetGameStatus() {
+            showConfirm("Möchtest du wirklich ein neues Spiel starten?", () => {
+                const newSigns = generateSecretSigns(state.gameData.questions.length);
+                state.gameData.questions.forEach((q, i) => {
+                    q.answered = false;
+                    q.wrongCount = 0; 
+                    q.secretSign = newSigns[i]; 
+                });
+                state.gameData.teams.forEach(t => t.score = 0);
+                state.activeTeamIndex = -1; // Reset active team
+                saveToLocal();
+                
+                if (state.view === 'game' && state.gameData.config.enforceOrder && getValidTeamsCount() > 0) {
+                    startTeamDrawAnimation();
+                } else {
+                    render();
+                }
+            });
         }
 
         // --- SCORE LOGIC & ANIMATION QUEUE ---
@@ -588,9 +407,7 @@
 
         function processPendingScoreUpdates() {
             state.pendingScoreUpdates.forEach((update, i) => {
-                setTimeout(() => {
-                    animateScoreUpdate(update.teamIdx, update.amount, update.oldScore, update.newScore);
-                }, i * 200);
+                setTimeout(() => { animateScoreUpdate(update.teamIdx, update.amount, update.oldScore, update.newScore); }, i * 200);
             });
             state.pendingScoreUpdates = [];
         }
@@ -612,13 +429,7 @@
             playSound('correct'); 
             state.pendingScoreUpdates.push({ teamIdx, amount: points, oldScore: oldScore, newScore: state.gameData.teams[teamIdx].score });
             
-            if (state.currentQuestion && state.currentQuestion.isJoker) {
-                closeQuestion();
-                return;
-            }
-            state.modalStep = 2; // Weiter zur Lösung
-            saveToLocal();
-            render(); 
+            closeQuestion();
         }
 
         // Falsche Antwort
@@ -635,17 +446,27 @@
             if (!state.currentQuestion.wrongCount) state.currentQuestion.wrongCount = 0;
             state.currentQuestion.wrongCount++;
             
-            if (!state.gameData.config.allowThreeStrikes || state.currentQuestion.wrongCount >= 3) {
-               state.modalStep = 2; 
+            // Wenn enforceOrder AN ist, behandeln wir falsche Antworten immer als Strike
+            const isEnforceOrder = state.gameData.config.enforceOrder;
+            const allowStrikes = state.gameData.config.allowThreeStrikes;
+            
+            if ((!allowStrikes && !isEnforceOrder) || state.currentQuestion.wrongCount >= 3) {
+               closeQuestion();
+            } else {
+               saveToLocal();
+               render();
             }
-            saveToLocal();
-            render();
         }
 
-        // KLAUEN & SCHENKEN Logik
+        // BAIT OR BLESS Logik
         function sgSelectActingTeam(idx) {
             state.sgActingTeam = idx;
-            state.modalStep = 11;
+            if (state.currentQuestion && !state.currentQuestion.isJoker) {
+                state.pendingOutcome = { mode: 'sg-target', teamIdx: idx, amount: 0, result: 'correct' };
+                state.modalStep = 2;
+            } else {
+                state.modalStep = 11;
+            }
             render();
         }
 
@@ -666,30 +487,110 @@
             if (actualPoints > 0) playSound('correct');
             else playSound('wrong');
 
-            state.pendingScoreUpdates.push({
-                teamIdx: targetIdx,
-                amount: actualPoints,
-                oldScore: oldScore,
-                newScore: state.gameData.teams[targetIdx].score
-            });
+            state.pendingScoreUpdates.push({ teamIdx: targetIdx, amount: actualPoints, oldScore: oldScore, newScore: state.gameData.teams[targetIdx].score });
+            state.pendingOutcome = null;
 
-            if (q.isJoker) {
-                closeQuestion();
-            } else {
-                state.modalStep = 2; // Show solution
+            closeQuestion();
+        }
+
+
+        function prepareScoreOutcome(teamIdx, amount, resultLabel) {
+            state.pendingOutcome = {
+                mode: 'score',
+                teamIdx: typeof teamIdx === 'number' ? teamIdx : -1,
+                amount: amount || 0,
+                result: resultLabel || 'none'
+            };
+            state.modalStep = 2;
+            saveToLocal();
+            render();
+        }
+
+        function selectCorrectAnswer(teamIdx) {
+            const q = state.currentQuestion;
+            if (!q) return;
+
+            if (state.gameMode === 'steal_gift') {
+                state.sgActingTeam = teamIdx;
+                state.pendingOutcome = { mode: 'sg-target', teamIdx, amount: 0, result: 'correct' };
+                state.modalStep = 2;
+                render();
+                return;
+            }
+
+            prepareScoreOutcome(teamIdx, q.value, 'correct');
+        }
+
+        function selectWrongAnswer(teamIdx) {
+            const q = state.currentQuestion;
+            if (!q) return;
+
+            if (!q.wrongCount) q.wrongCount = 0;
+            q.wrongCount++;
+
+            const isEnforceOrder = state.gameData.config.enforceOrder;
+            const allowStrikes = state.gameData.config.allowThreeStrikes;
+            const isFinalWrong = ((!allowStrikes && !isEnforceOrder) || q.wrongCount >= 3);
+
+            if (!isFinalWrong) {
                 saveToLocal();
                 render();
+                return;
             }
+
+            const deduction = state.gameData.config.deductOnWrong ? q.value : 0;
+            prepareScoreOutcome(teamIdx, -deduction, 'wrong');
+        }
+
+        function selectNoAnswer() {
+            state.pendingOutcome = { mode: 'score', teamIdx: -1, amount: 0, result: 'none' };
+            state.modalStep = 2;
+            render();
+        }
+
+        function continueAfterSolution() {
+            if (state.pendingOutcome && state.pendingOutcome.mode === 'sg-target') {
+                state.modalStep = 11;
+            } else {
+                state.modalStep = 13;
+            }
+            render();
+        }
+
+        function confirmPendingScore() {
+            const outcome = state.pendingOutcome;
+            if (outcome && outcome.mode === 'score' && outcome.teamIdx >= 0) {
+                const oldScore = state.gameData.teams[outcome.teamIdx].score;
+                const amount = outcome.amount || 0;
+                state.gameData.teams[outcome.teamIdx].score += amount;
+
+                if (amount > 0) playSound('correct');
+                else if (amount < 0 || outcome.result === 'wrong') playSound('wrong');
+
+                if (amount !== 0) {
+                    state.pendingScoreUpdates.push({
+                        teamIdx: outcome.teamIdx,
+                        amount,
+                        oldScore,
+                        newScore: state.gameData.teams[outcome.teamIdx].score
+                    });
+                }
+            } else if (outcome && outcome.result === 'none') {
+                playSound('wrong');
+            }
+
+            state.pendingOutcome = null;
+            closeQuestion();
         }
 
         // Lifecycle
         function closeQuestion() {
-            state.currentQuestion.answered = true;
+            if (state.currentQuestion) state.currentQuestion.answered = true;
             state.currentQuestion = null;
-            
-            // Team wechseln, wenn Frage endgültig geschlossen wird
+            state.pendingOutcome = null;
+            state.sgActingTeam = -1;
+            state.sgTargetTeam = -1;
             nextTeam();
-            
             saveToLocal();
             render();
             setTimeout(processPendingScoreUpdates, 250);
@@ -697,12 +598,176 @@
 
         function pauseQuestion() {
             state.currentQuestion = null;
+            state.pendingOutcome = null;
+            state.sgActingTeam = -1;
+            state.sgTargetTeam = -1;
             saveToLocal();
             render();
             setTimeout(processPendingScoreUpdates, 250);
         }
 
         // --- UI MODALS ---
+        function showAlert(message) {
+            const container = document.getElementById('app');
+            const overlay = document.createElement('div');
+            overlay.className = "fixed inset-0 modal-overlay z-[80] flex items-center justify-center p-4";
+            overlay.innerHTML = `<div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm text-center border border-slate-200 scale-in"><h3 class="text-xl font-bold text-slate-800 mb-4">Hinweis</h3><p class="text-slate-600 mb-6">${message}</p><button id="alertOkBtn" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg transition">OK</button></div>`;
+            container.appendChild(overlay);
+            document.getElementById('alertOkBtn').onclick = () => overlay.remove();
+        }
+
+        function showConfirm(message, onConfirm, onCancel = null) {
+            const container = document.getElementById('app');
+            const overlay = document.createElement('div');
+            overlay.className = "fixed inset-0 modal-overlay z-[80] flex items-center justify-center p-4";
+            overlay.innerHTML = `<div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm text-center border border-slate-200 scale-in"><h3 class="text-xl font-bold text-slate-800 mb-4">Bitte bestätigen</h3><p class="text-slate-600 mb-6">${message}</p><div class="flex gap-2"><button id="confirmCancelBtn" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition">Abbrechen</button><button id="confirmOkBtn" class="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-lg transition">Bestätigen</button></div></div>`;
+            container.appendChild(overlay);
+            document.getElementById('confirmOkBtn').onclick = () => { overlay.remove(); if (onConfirm) onConfirm(); };
+            document.getElementById('confirmCancelBtn').onclick = () => { overlay.remove(); if (onCancel) onCancel(); };
+        }
+
+        function renderPasswordModal(onSuccess) {
+            const container = document.getElementById('app');
+            const overlay = document.createElement('div');
+            overlay.className = "fixed inset-0 modal-overlay z-[70] flex items-center justify-center p-4";
+            overlay.innerHTML = `<div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center border border-slate-200 scale-in"><h3 class="text-xl font-bold text-slate-800 mb-4">Passwort erforderlich</h3><input type="password" id="passwordInput" class="w-full p-3 rounded-xl border border-slate-300 text-center text-2xl font-black tracking-widest focus:border-indigo-500 outline-none mb-6" placeholder="****" autofocus><div class="flex gap-2"><button id="cancelPw" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition">Abbrechen</button><button id="confirmPw" class="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold shadow-lg transition">OK</button></div></div>`;
+            container.appendChild(overlay);
+            const input = document.getElementById('passwordInput'); input.focus();
+            const checkPw = () => { if(input.value === DEFAULT_PASSWORD) { state.editorAuth = true; overlay.remove(); onSuccess(); } else { input.classList.add('border-rose-500', 'bg-rose-50'); input.value=''; input.placeholder="Falsch"; setTimeout(()=>{input.classList.remove('border-rose-500', 'bg-rose-50');input.placeholder="****"},1000); } };
+            document.getElementById('confirmPw').onclick = checkPw; document.getElementById('cancelPw').onclick = () => overlay.remove(); input.onkeydown = (e) => { if(e.key === 'Enter') checkPw(); };
+        }
+
+
+        function requestAuth(onSuccess) {
+            if (state.editorAuth) {
+                if (typeof onSuccess === 'function') onSuccess();
+                return;
+            }
+            renderPasswordModal(() => {
+                if (typeof onSuccess === 'function') onSuccess();
+            });
+        }
+
+        function openEditorWithPassword() {
+            state.editorAuth = false;
+            renderPasswordModal(() => {
+                state.view = 'editor';
+                render();
+            });
+        }
+
+        function getCleanGameDataForExport() {
+            return JSON.parse(JSON.stringify(state.gameData));
+        }
+
+        function exportData() {
+            try {
+                const exportPayload = {
+                    app: "Modernes Klassenraum Jeopardy",
+                    version: 3,
+                    exportedAt: new Date().toISOString(),
+                    gameData: getCleanGameDataForExport()
+                };
+                const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                const date = new Date().toISOString().slice(0, 10);
+                a.href = url;
+                a.download = `jeopardy-spiel-${date}.json`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                console.error('Export fehlgeschlagen:', error);
+                showAlert('Das Spiel konnte leider nicht gespeichert/exportiert werden.');
+            }
+        }
+
+        function normalizeImportedGameData(rawData) {
+            const imported = rawData && rawData.gameData ? rawData.gameData : rawData;
+            if (!imported || typeof imported !== 'object') throw new Error('Keine gültigen Spieldaten.');
+
+            const fallback = createInitialData();
+            const cols = Number(imported.config?.cols) || fallback.config.cols;
+            const rows = Number(imported.config?.rows) || fallback.config.rows;
+            const expectedQuestionCount = cols * rows;
+
+            const normalized = {
+                config: {
+                    cols,
+                    rows,
+                    allowThreeStrikes: Boolean(imported.config?.allowThreeStrikes),
+                    deductOnWrong: typeof imported.config?.deductOnWrong === 'undefined' ? true : Boolean(imported.config.deductOnWrong),
+                    enforceOrder: Boolean(imported.config?.enforceOrder)
+                },
+                categories: Array.isArray(imported.categories) ? imported.categories.slice(0, cols) : [],
+                teams: Array.isArray(imported.teams) ? imported.teams.slice(0, 4) : [],
+                questions: []
+            };
+
+            while (normalized.categories.length < cols) normalized.categories.push(`Kategorie ${normalized.categories.length + 1}`);
+            normalized.categories = normalized.categories.map((cat, i) => String(cat || `Kategorie ${i + 1}`));
+
+            while (normalized.teams.length < 4) normalized.teams.push({ name: `Team ${normalized.teams.length + 1}`, score: 0 });
+            normalized.teams = normalized.teams.map((team, i) => ({
+                name: String(team?.name || `Team ${i + 1}`),
+                score: Number(team?.score) || 0
+            }));
+
+            const importedQuestions = Array.isArray(imported.questions) ? imported.questions : [];
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const existing = importedQuestions.find(q => Number(q?.row) === r && Number(q?.col) === c);
+                    normalized.questions.push({
+                        id: existing?.id || `q_${r}_${c}`,
+                        row: r,
+                        col: c,
+                        value: (r + 1) * 100,
+                        question: String(existing?.question || ''),
+                        answer: String(existing?.answer || ''),
+                        isJoker: Boolean(existing?.isJoker),
+                        answered: Boolean(existing?.answered),
+                        wrongCount: Number(existing?.wrongCount) || 0,
+                        secretSign: typeof existing?.secretSign === 'number' ? existing.secretSign : 1
+                    });
+                }
+            }
+
+            const newSigns = generateSecretSigns(expectedQuestionCount);
+            normalized.questions.forEach((q, i) => {
+                if (q.secretSign !== 1 && q.secretSign !== -1) q.secretSign = newSigns[i];
+            });
+
+            return normalized;
+        }
+
+        function importData(event) {
+            const file = event?.target?.files?.[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (loadEvent) => {
+                try {
+                    const parsed = JSON.parse(loadEvent.target.result);
+                    state.gameData = normalizeImportedGameData(parsed);
+                    state.currentQuestion = null;
+                    state.modalStep = 0;
+                    state.activeTeamIndex = -1;
+                    saveToLocal();
+                    render();
+                    showAlert('Das Spiel wurde erfolgreich importiert.');
+                } catch (error) {
+                    console.error('Import fehlgeschlagen:', error);
+                    showAlert('Die Datei konnte nicht importiert werden. Bitte wähle eine gültige Jeopardy-JSON-Datei.');
+                } finally {
+                    event.target.value = '';
+                }
+            };
+            reader.onerror = () => showAlert('Die Datei konnte nicht gelesen werden.');
+            reader.readAsText(file);
+        }
+
         function openManualScoreModal(teamIdx) {
             requestAuth(() => {
                 const container = document.getElementById('app');
@@ -718,6 +783,35 @@
         window.applyManualScore = (idx, amount) => { adjustScore(idx, amount); window.closeModal(); }
         window.applyCustomInput = (idx) => { const val = parseInt(document.getElementById('manualInput').value); if(!isNaN(val)) { adjustScore(idx, val); window.closeModal(); } }
 
+        function confirmAndClearAll() {
+            const container = document.getElementById('app');
+            const overlay = document.createElement('div');
+            overlay.className = "fixed inset-0 modal-overlay z-[80] flex items-center justify-center p-4";
+            overlay.innerHTML = `<div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md text-center border border-slate-200 scale-in"><h3 class="text-xl font-bold text-slate-800 mb-4">Alles leeren?</h3><p class="text-slate-600 mb-6">Möchtest du das aktuelle Spiel vor dem Löschen speichern?</p><div class="flex flex-col gap-3"><button id="btnSaveAndClear" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-md transition">Speichern & dann leeren</button><button id="btnClearOnly" class="w-full py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md transition">Ohne Speichern leeren</button><button id="btnCancelClear" class="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition">Abbrechen</button></div></div>`;
+            container.appendChild(overlay);
+            
+            document.getElementById('btnSaveAndClear').onclick = () => {
+                exportData();
+                overlay.innerHTML = `<div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm text-center border border-slate-200 scale-in"><h3 class="text-xl font-bold text-slate-800 mb-4">Wirklich leeren?</h3><p class="text-slate-600 mb-6">Download gestartet. Bist du sicher, dass du alles löschen möchtest?</p><div class="flex gap-2"><button id="cancelFinal" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold">Abbrechen</button><button id="confirmFinal" class="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md">Löschen</button></div></div>`;
+                document.getElementById('confirmFinal').onclick = () => { clearAllDataInternal(); overlay.remove(); };
+                document.getElementById('cancelFinal').onclick = () => overlay.remove();
+            };
+            
+            document.getElementById('btnClearOnly').onclick = () => {
+                overlay.innerHTML = `<div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-sm text-center border border-slate-200 scale-in"><h3 class="text-xl font-bold text-rose-600 mb-4">Letzte Warnung!</h3><p class="text-slate-600 mb-6">Alle Fragen und Antworten werden unwiderruflich gelöscht. Fortfahren?</p><div class="flex gap-2"><button id="cancelFinal2" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold">Abbrechen</button><button id="confirmFinal2" class="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md">Löschen</button></div></div>`;
+                document.getElementById('confirmFinal2').onclick = () => { clearAllDataInternal(); overlay.remove(); };
+                document.getElementById('cancelFinal2').onclick = () => overlay.remove();
+            };
+            document.getElementById('btnCancelClear').onclick = () => overlay.remove();
+        }
+
+        function clearAllDataInternal() {
+            state.gameData.questions.forEach(q => { q.question = ""; q.answer = ""; q.answered = false; q.isJoker = false; q.wrongCount = 0; });
+            saveToLocal();
+            render();
+            if (state.view === 'editor') setTimeout(() => render(), 50); 
+        }
+
         function resizeGrid(newCols, newRows) {
             const oldCols = state.gameData.config.cols;
             const oldRows = state.gameData.config.rows;
@@ -731,11 +825,8 @@
                         else newQuestions.push({ id: `q_${r}_${c}`, row: r, col: c, value: (r + 1) * 100, question: "", answer: "", isJoker: false, answered: false, wrongCount: 0 });
                     }
                 }
-                
-                // Vorzeichen neu 50/50 verteilen
                 const newSigns = generateSecretSigns(newQuestions.length);
                 newQuestions.forEach((q, i) => { q.secretSign = newSigns[i]; });
-
                 const newCategories = [];
                 for (let c = 0; c < newCols; c++) { newCategories.push(c < state.gameData.categories.length ? state.gameData.categories[c] : `Kategorie ${c+1}`); }
                 state.gameData.config.cols = newCols;
@@ -746,11 +837,8 @@
                 render();
             };
 
-            if (newCols < oldCols || newRows < oldRows) {
-                showConfirm(`Achtung: Verkleinerung löscht äußere Fragen. Fortfahren?`, executeResize, () => render());
-            } else {
-                executeResize();
-            }
+            if (newCols < oldCols || newRows < oldRows) showConfirm(`Achtung: Verkleinerung löscht äußere Fragen. Fortfahren?`, executeResize, () => render());
+            else executeResize();
         }
 
         function toggleConfig(key, e) { state.gameData.config[key] = e.target.checked; saveToLocal(); }
@@ -780,27 +868,16 @@
                         </button>
                         <button onclick="startGame('steal_gift')" class="flat-btn bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-5 px-8 rounded-2xl shadow-xl shadow-indigo-300 text-xl tracking-wide flex-1 flex flex-col items-center justify-center gap-2">
                             <span>BAIT OR BLESS</span>
-                            <span class="text-xs font-medium text-indigo-300">Seid ihr mutig genug?</span>
+                            <span class="text-xs font-medium text-indigo-300">Der taktische Twist</span>
                         </button>
                     </div>
 
                     <div class="flex justify-center gap-4 w-full max-w-2xl">
-                        <button onclick="requestAuth(() => { state.view='editor'; render(); })" class="flat-btn flex-1 bg-white hover:bg-slate-50 text-slate-600 font-bold py-4 px-8 rounded-2xl text-base border-2 border-slate-200 shadow-sm">EDITOR</button>
+                        <button onclick="openEditorWithPassword()" class="flat-btn flex-1 bg-white hover:bg-slate-50 text-slate-600 font-bold py-4 px-8 rounded-2xl text-base border-2 border-slate-200 shadow-sm">EDITOR</button>
                         <button onclick="state.view='instructions'; render()" class="flat-btn flex-1 bg-slate-100 hover:bg-slate-200 text-slate-500 font-bold py-4 px-8 rounded-2xl text-base border-2 border-slate-200 shadow-sm">ANLEITUNG</button>
                     </div>
                 </div>
             `;
-        }
-        
-        function renderPasswordModal(onSuccess) {
-            const container = document.getElementById('app');
-            const overlay = document.createElement('div');
-            overlay.className = "fixed inset-0 modal-overlay z-[70] flex items-center justify-center p-4";
-            overlay.innerHTML = `<div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-sm text-center border border-slate-200 scale-in"><h3 class="text-xl font-bold text-slate-800 mb-4">Passwort erforderlich</h3><input type="password" id="passwordInput" class="w-full p-3 rounded-xl border border-slate-300 text-center text-2xl font-black tracking-widest focus:border-indigo-500 outline-none mb-6" placeholder="****" autofocus><div class="flex gap-2"><button id="cancelPw" class="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold transition">Abbrechen</button><button id="confirmPw" class="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold shadow-lg transition">OK</button></div></div>`;
-            container.appendChild(overlay);
-            const input = document.getElementById('passwordInput'); input.focus();
-            const checkPw = () => { if(input.value === DEFAULT_PASSWORD) { state.editorAuth = true; overlay.remove(); onSuccess(); } else { input.classList.add('border-rose-500', 'bg-rose-50'); input.value=''; input.placeholder="Falsch"; setTimeout(()=>{input.classList.remove('border-rose-500', 'bg-rose-50');input.placeholder="****"},1000); } };
-            document.getElementById('confirmPw').onclick = checkPw; document.getElementById('cancelPw').onclick = () => overlay.remove(); input.onkeydown = (e) => { if(e.key === 'Enter') checkPw(); };
         }
 
         function renderInstructions(container) {
@@ -811,7 +888,6 @@
                     </div>
                     <div class="flex-grow overflow-y-auto p-4 md:p-8">
                         <div class="max-w-3xl mx-auto space-y-12 pb-12">
-                            
                             <section class="bg-indigo-50 p-8 rounded-3xl shadow-sm border border-indigo-100">
                                 <h2 class="text-3xl font-black text-indigo-700 mb-6">Neuer Modus: Bait or Bless</h2>
                                 <div class="space-y-4 text-indigo-900 text-lg leading-relaxed">
@@ -821,11 +897,10 @@
                                         <li>Beantwortet ein Team eine Frage richtig, bekommt es die Punkte <strong>nicht sofort</strong>.</li>
                                         <li>Das Team muss nun entscheiden: Wem geben wir die Punkte? <strong>Sich selbst oder einem gegnerischen Team?</strong></li>
                                         <li>Erst wenn die Wahl getroffen wurde, wird das Vorzeichen enthüllt!</li>
-                                        <li><strong>Der Twist:</strong> Behält man die Punkte und es ist ein Plus, wird man belohnt. Ist es ein Minus, bestraft man sich selbst. Gibt man die Punkte dem Gegner, kann man ihm Punkte klauen (-) oder ihm versehentlich Punkte schenken (+)!</li>
+                                        <li><strong>Der Twist:</strong> Behält man die Punkte und es ist ein Plus, wird man belohnt (Bless). Ist es ein Minus, bestraft man sich selbst (Bait). Gibt man die Punkte dem Gegner, kann man ihm Punkte klauen (-) oder ihm versehentlich Punkte schenken (+)!</li>
                                     </ul>
                                 </div>
                             </section>
-
                             <section class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
                                 <h2 class="text-3xl font-black text-slate-800 mb-6">1. Spielanleitung (Klassisch)</h2>
                                 <div class="space-y-4 text-slate-600 text-lg leading-relaxed">
@@ -838,22 +913,12 @@
                                     </ul>
                                 </div>
                             </section>
-
                             <section class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
                                 <h2 class="text-3xl font-black text-slate-800 mb-6">2. Anleitung für Lehrer</h2>
                                 <div class="space-y-8">
-                                    <div>
-                                        <h3 class="text-xl font-bold text-slate-700 mb-2">🛠️ Erstellen & Bearbeiten</h3>
-                                        <p class="text-slate-600 ml-8">Klicke im Menü auf EDITOR (Passwort: 1234). Klicke auf Kacheln um Fragen zu füllen. <br><span class="text-sm bg-slate-100 px-2 py-1 rounded mt-2 inline-block">Tipp: Formeln mit $$ einfügen (z.B. $$E=mc^2$$)</span></p>
-                                    </div>
-                                    <div>
-                                        <h3 class="text-xl font-bold text-slate-700 mb-2">🎲 Reihenfolge erzwingen</h3>
-                                        <p class="text-slate-600 ml-8">Im Editor aktivierbar. Das System lost zu Spielbeginn ein Team aus und hebt im Scoreboard hervor, welches Team an der Reihe ist, die nächste Frage auszuwählen.</p>
-                                    </div>
-                                    <div>
-                                        <h3 class="text-xl font-bold text-slate-700 mb-2">💾 Speichern & Laden</h3>
-                                        <p class="text-slate-600 ml-8">Daten sind im Browser. Für den PC-Wechsel: Im Editor auf <strong>SPEICHERN</strong> klicken (lädt .json). Am Ziel-PC auf <strong>IMPORT</strong> klicken.</p>
-                                    </div>
+                                    <div><h3 class="text-xl font-bold text-slate-700 mb-2">🛠️ Erstellen & Bearbeiten</h3><p class="text-slate-600 ml-8">Klicke im Menü auf EDITOR (Passwort: 1234). Klicke auf Kacheln um Fragen zu füllen. <br><span class="text-sm bg-slate-100 px-2 py-1 rounded mt-2 inline-block">Tipp: Formeln mit $$ einfügen (z.B. $$E=mc^2$$)</span></p></div>
+                                    <div><h3 class="text-xl font-bold text-slate-700 mb-2">💾 Speichern & Laden</h3><p class="text-slate-600 ml-8">Daten sind im Browser. Für den PC-Wechsel: Im Editor auf <strong>SPEICHERN</strong> klicken (lädt .json). Am Ziel-PC auf <strong>IMPORT</strong> klicken.</p></div>
+                                    <div><h3 class="text-xl font-bold text-slate-700 mb-2">⚖️ Punkte Korrigieren</h3><p class="text-slate-600 ml-8">Während des Spiels oben auf den Punktestand eines Teams klicken für Disziplinarmaßnahmen.</p></div>
                                 </div>
                             </section>
                         </div>
@@ -865,8 +930,8 @@
         function renderGame(container) {
             const cols = state.gameData.config.cols;
             const rows = state.gameData.config.rows;
+            const enforceOrder = state.gameData.config.enforceOrder;
             
-            // Falls Animation läuft, Overlay zeichnen und abbrechen
             if (state.isDrawingTeam) {
                 container.innerHTML = `
                     <div class="flex flex-col items-center justify-center h-full bg-slate-900 text-white p-6">
@@ -880,7 +945,7 @@
             }
 
             const header = document.createElement('div');
-            header.className = "bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm flex flex-col shrink-0 relative";
+            header.className = "bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm flex flex-col shrink-0";
             
             const navBar = document.createElement('div');
             navBar.className = "flex justify-between items-center px-4 py-1.5 border-b border-slate-100";
@@ -888,22 +953,19 @@
             header.appendChild(navBar);
 
             const scoreBar = document.createElement('div');
-            scoreBar.className = "flex justify-around items-center px-2 py-2 gap-2 overflow-x-auto relative";
-            
+            scoreBar.className = "flex justify-around items-center px-2 py-2 gap-2 overflow-x-auto";
             state.gameData.teams.forEach((team, idx) => {
                 if (!team.name || team.name.trim() === "") return;
                 
                 const isActive = enforceOrder && state.activeTeamIndex === idx;
-                
-                const tDiv = document.createElement('div');
-                // Highlighter Klassen wenn aktiv
                 const activeClass = isActive ? "bg-indigo-50 border border-indigo-300 shadow-md ring-2 ring-indigo-200" : "hover:bg-slate-50";
-                
+
+                const tDiv = document.createElement('div');
                 tDiv.className = `relative flex flex-col items-center min-w-[60px] md:min-w-[80px] p-2 rounded-xl group cursor-pointer select-none transition-all ${activeClass}`;
                 tDiv.onclick = () => openManualScoreModal(idx);
                 tDiv.title = "Klicken für Lehrer-Anpassung";
 
-                let indicatorHTML = isActive ? `<div class="absolute -top-1 right-0 text-indigo-500 font-bold text-sm animate-bounce">↓</div>` : '';
+                let indicatorHTML = isActive ? `<div class="absolute -top-3 text-indigo-500 font-bold text-lg animate-bounce">↓</div>` : '';
 
                 tDiv.innerHTML = `
                     ${indicatorHTML}
@@ -956,7 +1018,7 @@
             header.className = "bg-white border-b border-slate-200 p-4 shadow-sm z-30 sticky top-0";
             header.innerHTML = `
                 <div class="flex justify-between items-center mb-4">
-                    <button onclick="state.view='menu'; render()" class="text-slate-500 font-bold">← Zurück</button>
+                    <button onclick="state.editorAuth=false; state.view='menu'; render()" class="text-slate-500 font-bold">← Zurück</button>
                     <div class="flex gap-2">
                         <button onclick="confirmAndClearAll()" class="bg-rose-50 text-rose-600 border border-rose-200 px-3 py-1 rounded-lg text-xs font-bold">Alles leeren</button>
                         <button onclick="exportData()" class="bg-slate-900 text-white px-3 py-1 rounded-lg text-xs font-bold">Speichern</button>
@@ -967,13 +1029,14 @@
                     <div class="flex items-center gap-2"><span class="text-xs font-bold text-slate-400">SPALTEN:</span><select id="cSel" class="font-bold bg-transparent outline-none">${[2,3,4,5,6].map(n=>`<option ${n===cols?'selected':''}>${n}</option>`).join('')}</select></div>
                     <div class="flex items-center gap-2"><span class="text-xs font-bold text-slate-400">ZEILEN:</span><select id="rSel" class="font-bold bg-transparent outline-none">${[2,3,4,5,6,7,8].map(n=>`<option ${n===rows?'selected':''}>${n}</option>`).join('')}</select></div>
                     <div class="w-px h-6 bg-slate-300 mx-2"></div>
-                    <label class="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none"><input type="checkbox" id="threeStrikes" ${threeStrikes ? 'checked' : ''} class="w-4 h-4 accent-indigo-600 rounded"> 3 Fehlversuche erlauben</label>
-                    <label class="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none ml-2"><input type="checkbox" id="deductWrong" ${deductWrong ? 'checked' : ''} class="w-4 h-4 accent-rose-600 rounded"> Minuspunkte bei Falsch</label>
+                    <label class="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none"><input type="checkbox" id="threeStrikes" ${threeStrikes ? 'checked' : ''} class="w-4 h-4 accent-indigo-600 rounded"> 3 Fehlversuche</label>
+                    <label class="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none ml-2"><input type="checkbox" id="deductWrong" ${deductWrong ? 'checked' : ''} class="w-4 h-4 accent-rose-600 rounded"> Minuspunkte</label>
                     <div class="w-px h-6 bg-slate-300 mx-2"></div>
-                    <label class="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none" title="Lost zu Beginn ein Team aus und markiert, wer an der Reihe ist."><input type="checkbox" id="enforceOrder" ${enforceOrder ? 'checked' : ''} class="w-4 h-4 accent-emerald-600 rounded"> Feste Team-Reihenfolge</label>
+                    <label class="flex items-center gap-2 text-xs font-bold text-slate-500 cursor-pointer select-none"><input type="checkbox" id="enforceOrder" ${enforceOrder ? 'checked' : ''} class="w-4 h-4 accent-emerald-600 rounded"> Reihenfolge festlegen</label>
                 </div>
             `;
             container.appendChild(header);
+            
             document.getElementById('cSel').onchange = (e) => resizeGrid(parseInt(e.target.value), rows);
             document.getElementById('rSel').onchange = (e) => resizeGrid(cols, parseInt(e.target.value));
             document.getElementById('threeStrikes').onchange = (e) => toggleConfig('allowThreeStrikes', e);
@@ -993,11 +1056,11 @@
             state.gameData.questions.forEach(q => {
                 const d = document.createElement('div');
                 const th = getTheme(q.col);
-                const has = q.question.length > 0;
+                const has = q.question.length > 0 || q.isJoker;
                 d.className = `grid-cell aspect-video cursor-pointer flex-col p-2 border-2 ${has?`bg-white border-${th.name}-300`:'bg-slate-200 border-slate-300'}`;
-                let content = `<div class="font-black text-xl ${has?`text-${th.name}-500`:'text-slate-400'}">${q.value}</div>`;
-                if(q.isJoker) content += `<div class="text-[10px] font-black bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded-full mt-1 uppercase tracking-wider">Joker</div>`;
-                d.innerHTML = content;
+                let contentHTML = `<div class="font-black text-xl ${has?`text-${th.name}-500`:'text-slate-400'}">${q.value}</div>`;
+                if(q.isJoker) contentHTML += `<div class="text-[10px] font-black bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded-full mt-1 uppercase tracking-wider">Joker</div>`;
+                d.innerHTML = contentHTML;
                 d.onclick = () => openEditorModal(q);
                 qGrid.appendChild(d);
             });
@@ -1017,41 +1080,47 @@
             const q = state.currentQuestion;
             const theme = getTheme(q.col);
             const allowThreeStrikes = state.gameData.config.allowThreeStrikes;
+            const enforceOrder = state.gameData.config.enforceOrder;
+            const isBaitMode = state.gameMode === 'steal_gift';
             
             const overlay = document.createElement('div');
             overlay.className = "fixed inset-0 modal-overlay z-50 flex items-center justify-center p-6";
             
             const content = document.createElement('div');
-            content.className = "bg-white p-8 md:p-10 rounded-3xl shadow-2xl max-w-5xl w-full text-center border border-slate-100 scale-in flex flex-col gap-4 min-h-[50vh] max-h-[90vh] overflow-y-auto justify-center relative";
+            content.className = "bg-white p-8 md:p-10 rounded-3xl shadow-2xl max-w-5xl w-full text-center border border-slate-100 scale-in flex flex-col gap-4 md:gap-8 min-h-[50vh] max-h-[90vh] overflow-y-auto justify-center relative";
             content.innerHTML = `<div class="absolute top-0 left-0 w-full h-3 ${theme.header}"></div>`;
 
-            // Immer Header & Frage oben anzeigen (außer bei der initialen Joker-Karte)
-            if (!q.isJoker || state.modalStep > 0) {
-                content.innerHTML += `
-                    <div class="flex flex-col items-center justify-center mb-6 border-b border-slate-100 pb-4">
-                        <div class="${theme.text} font-bold text-lg uppercase tracking-widest opacity-70 ${q.isJoker ? '' : 'mb-2'}">${state.gameData.categories[q.col]} · ${q.value}</div>
-                        ${!q.isJoker ? `<div class="text-slate-800 text-2xl md:text-4xl font-bold leading-tight max-w-4xl">${q.question || "<span class='text-slate-300 italic'>(Keine Frage hinterlegt)</span>"}</div>` : ''}
-                    </div>
-                `;
+            if (state.modalStep === 0) {
+                const closeBtn = document.createElement('button');
+                closeBtn.innerHTML = '✕';
+                closeBtn.className = "absolute top-4 right-4 text-slate-400 hover:text-slate-600 font-bold text-xl";
+                closeBtn.onclick = () => pauseQuestion();
+                content.appendChild(closeBtn);
             }
 
-            // JOKER HANDLING (Initiale Ansicht)
+            // JOKER HANDLING bleibt bewusst kurz: Joker haben keine Frage/Lösung.
             if (q.isJoker && state.modalStep === 0) {
                 content.innerHTML += `
                     <div class="flex-grow flex flex-col items-center justify-center py-4">
-                        <div class="joker-bg text-6xl md:text-8xl font-black tracking-tighter">JOKER!</div>
+                        <div class="joker-bg text-6xl md:text-9xl font-black mb-4 tracking-tighter">JOKER!</div>
                     </div>
-                    <button id="jokerProceed" class="mt-auto self-center bg-yellow-400 hover:bg-yellow-300 text-yellow-900 font-bold py-3 px-8 rounded-full text-lg shadow-lg transition transform hover:-translate-y-1">
-                        WEITER
+                    <button id="jokerProceed" class="mt-auto self-center bg-yellow-400 hover:bg-yellow-300 text-yellow-900 font-bold py-3 px-8 md:py-4 md:px-12 rounded-full text-lg md:text-xl shadow-lg transition transform hover:-translate-y-1">
+                        PUNKTE VERGEBEN
                     </button>
                 `;
                 overlay.appendChild(content);
                 container.appendChild(overlay);
                 document.getElementById('jokerProceed').onclick = () => { 
                     if(state.gameMode === 'steal_gift') {
-                        state.sgActingTeam = -1; state.modalStep = 11;
+                        state.sgActingTeam = enforceOrder ? state.activeTeamIndex : -1; 
+                        state.modalStep = 11; 
                     } else {
-                        state.modalStep = 1;
+                        if(enforceOrder) {
+                            awardPoints(state.activeTeamIndex, q.value);
+                            return;
+                        } else {
+                            state.modalStep = 1; 
+                        }
                     }
                     render(); 
                 };
@@ -1061,99 +1130,96 @@
             // --- SCHRITT 0: FRAGE ANZEIGEN ---
             if (state.modalStep === 0) {
                 content.innerHTML += `
-                    <div class="flex-grow flex items-center justify-center">
-                         <!-- Platzhalter, um Layout stabil zu halten -->
+                    <div class="flex flex-col items-center justify-center mb-2 border-b border-slate-100 pb-4">
+                        <div class="${theme.text} font-bold text-lg uppercase tracking-widest opacity-70 mb-2">${state.gameData.categories[q.col]} · ${q.value}</div>
+                        <div class="text-slate-800 text-2xl md:text-4xl font-bold leading-tight max-w-4xl">${q.question || "<span class='text-slate-300 italic'>(Keine Frage hinterlegt)</span>"}</div>
                     </div>
+                    <div class="flex-grow flex items-center justify-center"></div>
                     <button id="toScoringBtn" class="mt-auto self-center ${theme.header} hover:brightness-110 text-white font-bold py-4 px-12 rounded-full text-xl shadow-lg transition transform hover:-translate-y-1">
-                        ANTWORTEN / BEWERTEN
+                        ANTWORT BEWERTEN
                     </button>
                 `;
-            } 
+            }
             
-            // --- SCHRITT 1: PUNKTEVERGABE (Klassisch) oder WER WAR ES (Klauen&Schenken) ---
+            // --- SCHRITT 1: AUSWAHL RICHTIG/FALSCH ---
             else if (state.modalStep === 1 || state.modalStep === 10) {
                 let wrongCount = q.wrongCount || 0;
-                let strikesHTML = allowThreeStrikes && !q.isJoker ? `<div class="text-xs text-rose-500 font-bold mb-1">Fehlversuche: ${wrongCount}/3</div>` : '';
-                
-                let titleText = "";
-                if(q.isJoker) titleText = "Wer bekommt die Joker-Punkte?";
-                else if(state.gameMode === 'steal_gift') titleText = "Wer hat die richtige Antwort gegeben?";
-                else titleText = "Punkte vergeben:";
+                let strikesHTML = (allowThreeStrikes || enforceOrder) && !q.isJoker ? `<div class="text-xs text-rose-500 font-bold mb-1">Fehlversuche: ${wrongCount}/3</div>` : '';
+                let titleText = q.isJoker ? "Wer bekommt die Joker-Punkte?" : "War die Antwort richtig oder falsch?";
+                let contentHTML = '';
 
-                // Wenn enforceOrder an ist, bestimmen wir den "acting" automatisch für Klauen&Schenken Step 10
-                // WICHTIG: Die Buttons ändern wir NUR, wenn enforceOrder aktiv ist. Wenn nicht, bleibt die freie Wahl.
-                const enforceOrder = state.gameData.config.enforceOrder;
-
-                content.innerHTML += `
-                    <div class="text-slate-400 font-bold text-xs md:text-sm uppercase tracking-widest mb-2">${titleText}</div>
-                    ${strikesHTML}
-                    
-                    <div class="mt-auto w-full flex flex-col gap-4">
+                if (enforceOrder && !q.isJoker) {
+                    const activeTeam = state.gameData.teams[state.activeTeamIndex];
+                    contentHTML = `
+                        <div class="bg-indigo-50 border border-indigo-200 rounded-2xl p-6 md:p-8 flex flex-col items-center gap-6 w-full max-w-md mx-auto">
+                            <div class="text-xl md:text-2xl font-black text-indigo-900">${activeTeam.name} ist am Zug</div>
+                            <div class="flex gap-4 w-full">
+                                <button onclick="selectWrongAnswer(${state.activeTeamIndex})" class="flex-1 bg-white hover:bg-rose-50 text-rose-600 font-bold py-4 rounded-xl transition text-lg shadow-sm border border-rose-200">
+                                    ✕ Falsch
+                                </button>
+                                <button onclick="selectCorrectAnswer(${state.activeTeamIndex})" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 rounded-xl transition text-lg shadow-md border border-emerald-600">
+                                    ✔️ Richtig
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    contentHTML = `
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3">
                             ${state.gameData.teams.map((t, idx) => {
                                 if (!t.name || t.name.trim() === "") return ""; 
                                 
-                                // Joker (Freie Wahl)
                                 if (q.isJoker) {
                                     const action = state.gameMode === 'steal_gift' ? `sgSelectTargetTeam(${idx})` : `awardPoints(${idx}, ${q.value})`;
                                     return `<button onclick="${action}" class="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border border-yellow-300 py-3 rounded-xl transition font-bold shadow-sm">${t.name}</button>`;
                                 }
 
-                                // Klauen & Schenken
-                                if (state.gameMode === 'steal_gift') {
-                                    if (enforceOrder) {
-                                        // Nur das aktive Team darf Punkte verteilen/Antwort geben
-                                        if (state.activeTeamIndex === idx) {
-                                            if (allowThreeStrikes) {
-                                                return `<div class="flex gap-1"><button onclick="sgSelectActingTeam(${idx})" class="flex-grow bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border border-indigo-300 py-2 px-2 md:py-3 md:px-4 rounded-l-xl transition font-bold shadow-sm text-sm md:text-base ring-2 ring-indigo-500">${t.name} (Am Zug)</button><button onclick="registerWrongAnswer(${idx}, ${q.value})" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-2 px-2 md:py-3 rounded-r-xl transition font-bold shadow-sm" title="Falsch">✕</button></div>`;
-                                            } else {
-                                                return `<button onclick="sgSelectActingTeam(${idx})" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border border-indigo-300 py-2 px-2 md:py-3 md:px-4 rounded-xl transition font-bold shadow-sm text-sm md:text-base ring-2 ring-indigo-500">${t.name} (Am Zug)</button>`;
-                                            }
-                                        } else {
-                                            return `<div class="bg-slate-50 text-slate-300 border border-slate-100 py-2 px-2 md:py-3 md:px-4 rounded-xl font-bold text-sm md:text-base cursor-not-allowed flex items-center justify-center">${t.name}</div>`;
-                                        }
-                                    } else {
-                                        // FREIE WAHL: Jeder kann die richtige Antwort gegeben haben
-                                        if (allowThreeStrikes) {
-                                            return `<div class="flex gap-1"><button onclick="sgSelectActingTeam(${idx})" class="flex-grow bg-white hover:bg-indigo-50 text-slate-600 border border-slate-200 py-2 px-2 md:py-3 md:px-4 rounded-l-xl transition font-bold shadow-sm text-sm md:text-base">${t.name}</button><button onclick="registerWrongAnswer(${idx}, ${q.value})" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-2 px-2 md:py-3 rounded-r-xl transition font-bold shadow-sm" title="Falsch">✕</button></div>`;
-                                        } else {
-                                            return `<button onclick="sgSelectActingTeam(${idx})" class="bg-white hover:bg-indigo-50 text-slate-600 border border-slate-200 py-2 px-2 md:py-3 md:px-4 rounded-xl transition font-bold shadow-sm text-sm md:text-base">${t.name}</button>`;
-                                        }
-                                    }
-                                } 
-                                // Klassisch
-                                else {
-                                    if (enforceOrder) {
-                                         if (state.activeTeamIndex === idx) {
-                                            if (allowThreeStrikes) {
-                                                return `<div class="flex gap-1"><button onclick="awardPoints(${idx}, ${q.value})" class="flex-grow bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border border-indigo-300 py-2 px-2 md:py-3 md:px-4 rounded-l-xl transition font-bold shadow-sm text-sm md:text-base ring-2 ring-indigo-500">${t.name} (Am Zug)</button><button onclick="registerWrongAnswer(${idx}, ${q.value})" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-2 px-2 md:py-3 rounded-r-xl transition font-bold shadow-sm" title="Falsch">✕</button></div>`;
-                                            } else {
-                                                return `<button onclick="awardPoints(${idx}, ${q.value})" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-800 border border-indigo-300 py-2 px-2 md:py-3 md:px-4 rounded-xl transition font-bold shadow-sm text-sm md:text-base ring-2 ring-indigo-500">${t.name} (Am Zug)</button>`;
-                                            }
-                                        } else {
-                                            return `<div class="bg-slate-50 text-slate-300 border border-slate-100 py-2 px-2 md:py-3 md:px-4 rounded-xl font-bold text-sm md:text-base cursor-not-allowed flex items-center justify-center">${t.name}</div>`;
-                                        }
-                                    } else {
-                                        // FREIE WAHL
-                                        if (allowThreeStrikes) {
-                                            return `<div class="flex gap-1"><button onclick="awardPoints(${idx}, ${q.value})" class="flex-grow bg-white hover:bg-emerald-50 text-slate-600 border border-slate-200 py-2 px-2 md:py-3 md:px-4 rounded-l-xl transition font-bold shadow-sm text-sm md:text-base">${t.name}</button><button onclick="registerWrongAnswer(${idx}, ${q.value})" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-2 px-2 md:py-3 rounded-r-xl transition font-bold shadow-sm" title="Falsch">✕</button></div>`;
-                                        } else {
-                                            return `<button onclick="awardPoints(${idx}, ${q.value})" class="bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 py-2 px-2 md:py-3 md:px-4 rounded-xl transition font-bold shadow-sm text-sm md:text-base">${t.name}</button>`;
-                                        }
-                                    }
-                                }
+                                return `
+                                <div class="flex gap-1">
+                                    <button onclick="selectCorrectAnswer(${idx})" class="flex-grow bg-white hover:bg-indigo-50 text-slate-600 border border-slate-200 py-2 px-2 md:py-3 md:px-4 rounded-l-xl transition font-bold shadow-sm text-sm md:text-base">${t.name} richtig</button>
+                                    <button onclick="selectWrongAnswer(${idx})" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 py-2 px-2 md:py-3 rounded-r-xl transition font-bold shadow-sm" title="Falsch">✕</button>
+                                </div>
+                                `;
                             }).join('')}
                         </div>
-                        <div class="grid ${q.isJoker ? 'grid-cols-2' : 'grid-cols-3'} gap-3 border-t border-slate-200 pt-4 mt-2">
+                    `;
+                }
+
+                content.innerHTML += `
+                    <div class="text-slate-500 text-xl md:text-2xl font-bold mb-6 italic leading-snug">"${q.question}"</div>
+                    <div class="text-slate-400 font-bold text-xs md:text-sm uppercase tracking-widest mb-2">${titleText}</div>
+                    ${strikesHTML}
+                    <div class="mt-auto w-full flex flex-col gap-4">
+                        ${contentHTML}
+                        <div class="grid grid-cols-2 gap-3 border-t border-slate-200 pt-4 mt-2">
                              <button onclick="pauseQuestion()" class="bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-3 rounded-xl transition text-sm uppercase tracking-wide"> Zurück </button>
-                             ${!q.isJoker ? `<button onclick="state.modalStep = 2; render()" class="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 font-bold py-3 rounded-xl transition text-sm uppercase tracking-wide"> Lösung </button>` : ''}
-                             <button onclick="playSound('wrong'); closeQuestion()" class="bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold py-3 rounded-xl transition text-sm uppercase tracking-wide"> Niemand </button>
+                             <button onclick="selectNoAnswer()" class="bg-rose-100 hover:bg-rose-200 text-rose-700 font-bold py-3 rounded-xl transition text-sm uppercase tracking-wide"> Niemand </button>
                         </div>
                     </div>
                 `;
             }
 
-            // --- SCHRITT 11: KLAUEN & SCHENKEN ZIELWAHL ---
+            // --- SCHRITT 2: LÖSUNG ANZEIGEN ---
+            else if (state.modalStep === 2) {
+                const nextLabel = (state.pendingOutcome && state.pendingOutcome.mode === 'sg-target') ? 'WEITER ZUR PUNKTEWAHL' : 'PUNKTE ANZEIGEN';
+                content.innerHTML += `
+                    <div class="flex flex-col items-center justify-center mb-6 border-b border-slate-100 pb-4">
+                        <div class="text-slate-400 font-bold text-xs md:text-sm uppercase tracking-widest mb-1 mt-4">Die Frage war:</div>
+                        <div class="text-slate-500 text-lg md:text-2xl italic opacity-80 mb-4">"${q.question || "(Leer)"}"</div>
+                    </div>
+                    <div class="text-slate-400 font-bold text-xs md:text-sm uppercase tracking-widest mb-1 mt-4">Die richtige Antwort ist:</div>
+                    <div class="flex-grow flex items-center justify-center py-4">
+                        <div class="${theme.text} text-4xl md:text-6xl font-black">${q.answer || "<span class='text-slate-300'>(Keine Antwort)</span>"}</div>
+                    </div>
+                    <div class="mt-auto flex flex-col gap-3 w-full max-w-md self-center">
+                        <button onclick="continueAfterSolution()" class="w-full ${theme.header} hover:brightness-110 text-white font-bold py-4 rounded-full text-xl shadow-lg transition transform hover:-translate-y-1">
+                            ${nextLabel}
+                        </button>
+                    </div>
+                `;
+            }
+
+            // --- SCHRITT 11: BAIT OR BLESS ZIELWAHL ---
             else if (state.modalStep === 11) {
                 const actingName = state.sgActingTeam >= 0 ? state.gameData.teams[state.sgActingTeam].name : "Das Team";
                 const titleText = q.isJoker ? "JOKER! Wem gebt ihr die Punkte?" : `Wem gibt ${actingName} die Punkte?`;
@@ -1168,13 +1234,13 @@
                             }).join('')}
                         </div>
                         <div class="mt-4 pt-4 border-t border-slate-200 flex justify-center">
-                             <button onclick="state.modalStep = 10; render()" class="text-slate-500 hover:text-slate-700 font-bold text-sm bg-slate-100 px-4 py-2 rounded border border-slate-200">Zurück</button>
+                             <button onclick="state.modalStep = 2; render()" class="text-slate-500 hover:text-slate-700 font-bold text-sm bg-slate-100 px-4 py-2 rounded border border-slate-200">Zurück zur Lösung</button>
                         </div>
                     </div>
                 `;
             }
 
-            // --- SCHRITT 12: KLAUEN & SCHENKEN REVEAL ---
+            // --- SCHRITT 12: BAIT OR BLESS REVEAL / PUNKTEANZEIGE ---
             else if (state.modalStep === 12) {
                 const targetTeam = state.gameData.teams[state.sgTargetTeam];
                 const isPositive = q.secretSign > 0;
@@ -1182,7 +1248,7 @@
                 const colorClass = isPositive ? 'text-emerald-500' : 'text-rose-500';
                 
                 content.innerHTML += `
-                    <div class="text-slate-500 text-xl font-bold mb-2 uppercase tracking-widest">Das Vorzeichen ist...</div>
+                    <div class="text-slate-500 text-xl font-bold mb-2 uppercase tracking-widest">Punkteanzeige</div>
                     <div class="flex-grow flex items-center justify-center py-4">
                         <div class="text-[8rem] md:text-[10rem] font-black ${colorClass} scale-in drop-shadow-xl leading-none">
                             ${signChar}${q.value}
@@ -1193,22 +1259,35 @@
                     </div>
                     <div class="mt-auto w-full border-t border-slate-200 pt-6">
                         <button onclick="applySgPointsAndSolution()" class="${isPositive ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-rose-500 hover:bg-rose-600'} text-white font-bold py-4 px-12 rounded-full text-xl shadow-lg transition transform hover:-translate-y-1">
-                            ${q.isJoker ? 'Punkte verbuchen & Schließen' : 'Punkte verbuchen & Lösung zeigen'}
+                            Punkte verbuchen & Schließen
                         </button>
                     </div>
                 `;
             }
 
-            // --- SCHRITT 3: LÖSUNG ANZEIGEN ---
-            else if (state.modalStep === 2) {
+            // --- SCHRITT 13: KLASSISCHE PUNKTEANZEIGE ---
+            else if (state.modalStep === 13) {
+                const outcome = state.pendingOutcome || { teamIdx: -1, amount: 0, result: 'none' };
+                const hasTeam = outcome.teamIdx >= 0 && state.gameData.teams[outcome.teamIdx];
+                const teamName = hasTeam ? state.gameData.teams[outcome.teamIdx].name : 'Kein Team';
+                const amount = outcome.amount || 0;
+                const amountText = amount > 0 ? `+${amount}` : `${amount}`;
+                const colorClass = amount > 0 ? 'text-emerald-500' : (amount < 0 ? 'text-rose-500' : 'text-slate-400');
+                const message = hasTeam
+                    ? `${teamName} erhält ${amountText} Punkte.`
+                    : 'Niemand erhält Punkte.';
+
                 content.innerHTML += `
-                    <div class="text-slate-400 font-bold text-xs md:text-sm uppercase tracking-widest mb-1 mt-4">Die richtige Antwort ist:</div>
+                    <div class="text-slate-500 text-xl font-bold mb-2 uppercase tracking-widest">Punkteanzeige</div>
                     <div class="flex-grow flex items-center justify-center py-4">
-                        <div class="${theme.text} text-4xl md:text-6xl font-black">${q.answer || "<span class='text-slate-300'>(Keine Antwort)</span>"}</div>
+                        <div class="text-[7rem] md:text-[9rem] font-black ${colorClass} scale-in drop-shadow-xl leading-none">${amountText}</div>
                     </div>
-                    <button onclick="closeQuestion()" class="mt-auto self-center bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold py-3 px-12 rounded-full text-lg shadow-sm transition">
-                        Schließen
-                    </button>
+                    <div class="text-slate-700 text-2xl font-bold mb-6">${message}</div>
+                    <div class="mt-auto w-full border-t border-slate-200 pt-6">
+                        <button onclick="confirmPendingScore()" class="${amount >= 0 ? 'bg-emerald-500 hover:bg-emerald-600' : 'bg-rose-500 hover:bg-rose-600'} text-white font-bold py-4 px-12 rounded-full text-xl shadow-lg transition transform hover:-translate-y-1">
+                            Punkte verbuchen & Schließen
+                        </button>
+                    </div>
                 `;
             }
 
@@ -1217,7 +1296,7 @@
             
             if (state.modalStep === 0 && !q.isJoker) { 
                 document.getElementById('toScoringBtn').onclick = () => { 
-                    state.modalStep = state.gameMode === 'steal_gift' ? 10 : 1; 
+                    state.modalStep = 1; 
                     render(); 
                 }; 
             }
@@ -1230,6 +1309,9 @@
             }
             if(typeof question.wrongCount === 'undefined') question.wrongCount = 0;
             state.currentQuestion = question;
+            state.pendingOutcome = null;
+            state.sgActingTeam = -1;
+            state.sgTargetTeam = -1;
             state.modalStep = 0; 
             render();
         }
