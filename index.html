@@ -525,12 +525,43 @@
             const q = state.currentQuestion;
             if (!q) return;
 
+            const isEnforceOrder = state.gameData.config.enforceOrder;
+
+            // Bei fester Reihenfolge beendet eine falsche Antwort den aktuellen Zug:
+            // Die Frage geht unverändert zurück aufs Spielfeld, wird NICHT als beantwortet
+            // markiert und das nächste Team darf eine neue Frage auswählen.
+            if (isEnforceOrder) {
+                const deduction = state.gameData.config.deductOnWrong ? q.value : 0;
+                const oldScore = state.gameData.teams[teamIdx].score;
+
+                if (deduction > 0) {
+                    state.gameData.teams[teamIdx].score -= deduction;
+                    state.pendingScoreUpdates.push({
+                        teamIdx,
+                        amount: -deduction,
+                        oldScore,
+                        newScore: state.gameData.teams[teamIdx].score
+                    });
+                }
+
+                playSound('wrong');
+                q.wrongCount = 0;
+                state.currentQuestion = null;
+                state.pendingOutcome = null;
+                state.sgActingTeam = -1;
+                state.sgTargetTeam = -1;
+                nextTeam();
+                saveToLocal();
+                render();
+                setTimeout(processPendingScoreUpdates, 250);
+                return;
+            }
+
             if (!q.wrongCount) q.wrongCount = 0;
             q.wrongCount++;
 
-            const isEnforceOrder = state.gameData.config.enforceOrder;
             const allowStrikes = state.gameData.config.allowThreeStrikes;
-            const isFinalWrong = ((!allowStrikes && !isEnforceOrder) || q.wrongCount >= 3);
+            const isFinalWrong = (!allowStrikes || q.wrongCount >= 3);
 
             if (!isFinalWrong) {
                 saveToLocal();
