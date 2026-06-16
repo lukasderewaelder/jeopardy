@@ -101,24 +101,63 @@
 
         .game-grid {
             display: grid;
-            gap: 0.5rem; 
+            gap: var(--game-grid-gap, 0.5rem);
             width: 100%;
-            height: 100%; 
+            height: 100%;
+            min-width: 0;
+            min-height: 0;
             max-width: 100%;
+            max-height: 100%;
             margin: 0 auto;
+            overflow: hidden;
+        }
+
+        .game-grid > * {
+            min-width: 0;
+            min-height: 0;
+        }
+
+        .game-category-cell {
+            min-width: 0;
+            min-height: 0;
+            padding: var(--category-padding, 0.25rem);
+            border-radius: var(--game-cell-radius, 0.75rem);
+            font-size: var(--category-font-size, 1rem);
+            line-height: 1.05;
+            overflow: hidden;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+            hyphens: auto;
+        }
+
+        .game-category-cell > span {
+            display: -webkit-box;
+            width: 100%;
+            max-height: 100%;
+            overflow: hidden;
+            -webkit-box-orient: vertical;
+            -webkit-line-clamp: var(--category-line-count, 3);
         }
         
         .grid-cell {
             height: 100%;
             width: 100%;
+            min-width: 0;
+            min-height: 0;
+            box-sizing: border-box;
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
-            border-radius: 0.75rem;
+            border-radius: var(--game-cell-radius, 0.75rem);
             position: relative;
             overflow: hidden;
-            padding: 0.25rem;
+            padding: var(--value-padding, 0.25rem);
+        }
+
+        .game-value-cell {
+            font-size: var(--value-font-size, 2rem);
+            line-height: 1;
         }
         
         .grid-cell::before {
@@ -203,7 +242,7 @@
 
         let state = {
             view: 'menu', 
-            gameMode: 'classic', // 'classic' oder 'bait_bless'
+            gameMode: 'classic', // 'classic' oder 'trick_or_treat'
             gameData: createInitialData(),
             currentQuestion: null,
             modalStep: 0, // 0: Frage, 1: Bewertung, 2: Lösung, 13: Punkteanzeige, 11/12: Trick or Treat
@@ -458,7 +497,7 @@
             }
         }
 
-        // Trick or Treat Logik
+        // TRICK OR TREAT Logik
         function sgSelectActingTeam(idx) {
             state.sgActingTeam = idx;
             if (state.currentQuestion && !state.currentQuestion.isJoker) {
@@ -510,7 +549,7 @@
             const q = state.currentQuestion;
             if (!q) return;
 
-            if (state.gameMode === 'steal_gift') {
+            if (state.gameMode === 'trick_or_treat') {
                 state.sgActingTeam = teamIdx;
                 state.pendingOutcome = { mode: 'sg-target', teamIdx, amount: 0, result: 'correct' };
                 state.modalStep = 2;
@@ -527,10 +566,12 @@
 
             const isEnforceOrder = state.gameData.config.enforceOrder;
 
-            // Bei fester Reihenfolge beendet eine falsche Antwort den aktuellen Zug:
-            // Die Frage geht unverändert zurück aufs Spielfeld, wird NICHT als beantwortet
-            // markiert und das nächste Team darf eine neue Frage auswählen.
+            // Bei fester Reihenfolge beendet eine falsche Antwort den aktuellen Zug.
+            // Die Frage geht nach dem 1. und 2. Fehlversuch zurück aufs Spielfeld.
+            // Ist „3 Fehlversuche“ aktiviert, bleibt der Zähler an der Frage gespeichert
+            // und die Frage wird beim 3. Fehlversuch als beantwortet entfernt.
             if (isEnforceOrder) {
+                const allowStrikes = state.gameData.config.allowThreeStrikes;
                 const deduction = state.gameData.config.deductOnWrong ? q.value : 0;
                 const oldScore = state.gameData.teams[teamIdx].score;
 
@@ -545,7 +586,14 @@
                 }
 
                 playSound('wrong');
-                q.wrongCount = 0;
+
+                if (allowStrikes) {
+                    q.wrongCount = (Number(q.wrongCount) || 0) + 1;
+                    if (q.wrongCount >= 3) {
+                        q.answered = true;
+                    }
+                }
+
                 state.currentQuestion = null;
                 state.pendingOutcome = null;
                 state.sgActingTeam = -1;
@@ -875,8 +923,47 @@
         function toggleConfig(key, e) { state.gameData.config[key] = e.target.checked; saveToLocal(); }
 
         // --- RENDER FUNKTIONEN ---
+        let gameGridResizeObserver = null;
+
+        function fitGameGridToViewport(grid, cols, questionRows) {
+            const totalRows = questionRows + 1;
+
+            const applySizing = () => {
+                const rect = grid.getBoundingClientRect();
+                if (!rect.width || !rect.height) return;
+
+                const shortestCellSide = Math.min(rect.width / cols, rect.height / totalRows);
+                const gap = Math.max(2, Math.min(8, shortestCellSide * 0.075));
+                const cellWidth = Math.max(1, (rect.width - gap * (cols - 1)) / cols);
+                const cellHeight = Math.max(1, (rect.height - gap * (totalRows - 1)) / totalRows);
+
+                const valueFont = Math.max(14, Math.min(58, cellWidth * 0.23, cellHeight * 0.48));
+                const categoryFont = Math.max(8, Math.min(21, cellWidth * 0.085, cellHeight * 0.24));
+                const radius = Math.max(4, Math.min(12, shortestCellSide * 0.12));
+                const categoryPadding = Math.max(2, Math.min(8, shortestCellSide * 0.06));
+                const valuePadding = Math.max(1, Math.min(6, shortestCellSide * 0.04));
+                const categoryLines = cellHeight < 48 ? 2 : (cellHeight < 72 ? 3 : 4);
+
+                grid.style.setProperty('--game-grid-gap', `${gap}px`);
+                grid.style.setProperty('--value-font-size', `${valueFont}px`);
+                grid.style.setProperty('--category-font-size', `${categoryFont}px`);
+                grid.style.setProperty('--game-cell-radius', `${radius}px`);
+                grid.style.setProperty('--category-padding', `${categoryPadding}px`);
+                grid.style.setProperty('--value-padding', `${valuePadding}px`);
+                grid.style.setProperty('--category-line-count', String(categoryLines));
+            };
+
+            requestAnimationFrame(applySizing);
+            gameGridResizeObserver = new ResizeObserver(applySizing);
+            gameGridResizeObserver.observe(grid);
+        }
+
         function render() {
             const app = document.getElementById('app');
+            if (gameGridResizeObserver) {
+                gameGridResizeObserver.disconnect();
+                gameGridResizeObserver = null;
+            }
             app.innerHTML = ''; 
             if (state.view === 'menu') renderMenu(app);
             else if (state.view === 'game') renderGame(app);
@@ -897,9 +984,9 @@
                             <span>KLASSISCH</span>
                             <span class="text-xs font-medium text-slate-400">Das normale Jeopardy</span>
                         </button>
-                        <button onclick="startGame('steal_gift')" class="flat-btn bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-5 px-8 rounded-2xl shadow-xl shadow-indigo-300 text-xl tracking-wide flex-1 flex flex-col items-center justify-center gap-2">
-                            <span>Trick or Treat</span>
-                            <span class="text-xs font-medium text-indigo-300">Seid ihr mutig genug?t</span>
+                        <button onclick="startGame('trick_or_treat')" class="flat-btn bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-5 px-8 rounded-2xl shadow-xl shadow-indigo-300 text-xl tracking-wide flex-1 flex flex-col items-center justify-center gap-2">
+                            <span>TRICK OR TREAT</span>
+                            <span class="text-xs font-medium text-indigo-300">Seid ihr mutig genug?</span>
                         </button>
                     </div>
 
@@ -922,13 +1009,13 @@
                             <section class="bg-indigo-50 p-8 rounded-3xl shadow-sm border border-indigo-100">
                                 <h2 class="text-3xl font-black text-indigo-700 mb-6">Neuer Modus: Trick or Treat</h2>
                                 <div class="space-y-4 text-indigo-900 text-lg leading-relaxed">
-                                    <p>Ein taktischer Twist für das klassische Spiel!</p>
+                                    <p>Seid ihr mutig genug für diese besondere Variante?</p>
                                     <ul class="list-disc pl-6 space-y-2">
                                         <li>Die Punktewerte auf dem Spielfeld sind <strong>geheim</strong> exakt zur Hälfte positiv (+) und zur Hälfte negativ (-).</li>
                                         <li>Beantwortet ein Team eine Frage richtig, bekommt es die Punkte <strong>nicht sofort</strong>.</li>
                                         <li>Das Team muss nun entscheiden: Wem geben wir die Punkte? <strong>Sich selbst oder einem gegnerischen Team?</strong></li>
                                         <li>Erst wenn die Wahl getroffen wurde, wird das Vorzeichen enthüllt!</li>
-                                        <li><strong>Der Twist:</strong> Behält man die Punkte und es ist ein Plus, wird man belohnt (Bless). Ist es ein Minus, bestraft man sich selbst (Bait). Gibt man die Punkte dem Gegner, kann man ihm Punkte klauen (-) oder ihm versehentlich Punkte schenken (+)!</li>
+                                        <li><strong>Trick or Treat:</strong> Behält man die Punkte und es ist ein Plus, erhält man eine Belohnung (Treat). Ist es ein Minus, tappt man in den Trick. Gibt man die Punkte einem anderen Team, kann man ihm Punkte abziehen (-) oder ihm versehentlich Punkte schenken (+)!</li>
                                     </ul>
                                 </div>
                             </section>
@@ -980,7 +1067,7 @@
             
             const navBar = document.createElement('div');
             navBar.className = "flex justify-between items-center px-4 py-1.5 border-b border-slate-100";
-            navBar.innerHTML = `<button onclick="state.view='menu'; render()" class="flex items-center gap-2 text-slate-400 hover:text-slate-800 transition font-bold text-xs md:text-sm"><span>← MENÜ</span></button><div class="font-black text-lg tracking-widest text-slate-800 hidden md:block">JEOPARDY <span class="text-indigo-500 text-sm ml-2">${state.gameMode === 'steal_gift' ? '(Trick or Treat)' : '(Klassisch)'}</span></div><button onclick="resetGameStatus()" class="text-rose-400 hover:text-rose-600 text-[10px] md:text-xs font-bold uppercase tracking-wide border border-rose-200 bg-rose-50 px-2 py-1 rounded-lg">Reset</button>`;
+            navBar.innerHTML = `<button onclick="state.view='menu'; render()" class="flex items-center gap-2 text-slate-400 hover:text-slate-800 transition font-bold text-xs md:text-sm"><span>← MENÜ</span></button><div class="font-black text-lg tracking-widest text-slate-800 hidden md:block">JEOPARDY <span class="text-indigo-500 text-sm ml-2">${state.gameMode === 'trick_or_treat' ? '(Trick or Treat)' : '(Klassisch)'}</span></div><button onclick="resetGameStatus()" class="text-rose-400 hover:text-rose-600 text-[10px] md:text-xs font-bold uppercase tracking-wide border border-rose-200 bg-rose-50 px-2 py-1 rounded-lg">Reset</button>`;
             header.appendChild(navBar);
 
             const scoreBar = document.createElement('div');
@@ -1010,16 +1097,16 @@
             container.appendChild(header);
 
             const gridWrapper = document.createElement('div');
-            gridWrapper.className = "flex-grow flex flex-col items-center justify-center p-2 bg-slate-50 overflow-hidden h-0 w-full";
+            gridWrapper.className = "flex-grow flex flex-col items-center justify-center p-1 md:p-2 bg-slate-50 overflow-hidden min-h-0 min-w-0 h-0 w-full";
             const grid = document.createElement('div');
             grid.className = "game-grid";
-            grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-            grid.style.gridTemplateRows = `repeat(${rows + 1}, 1fr)`;
+            grid.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            grid.style.gridTemplateRows = `repeat(${rows + 1}, minmax(0, 1fr))`;
 
             state.gameData.categories.forEach((cat, idx) => {
                 const theme = getTheme(idx);
                 const catEl = document.createElement('div');
-                catEl.className = `${theme.header} text-white font-bold flex items-center justify-center p-1 text-center uppercase tracking-wider rounded-lg md:rounded-xl shadow-sm break-words overflow-hidden text-[1.8vmin] leading-tight`;
+                catEl.className = `${theme.header} game-category-cell text-white font-bold flex items-center justify-center text-center uppercase tracking-wider shadow-sm`;
                 catEl.innerHTML = `<span>${cat}</span>`;
                 grid.appendChild(catEl);
             });
@@ -1028,11 +1115,12 @@
                 const theme = getTheme(q.col);
                 const cell = document.createElement('div');
                 if (q.answered) { cell.className = "grid-cell disabled-cell"; cell.textContent = ""; } 
-                else { cell.className = `flat-btn grid-cell ${theme.bg} ${theme.text} ${theme.hover} font-black cursor-pointer shadow-sm hover:shadow-md transform hover:scale-[1.02] transition-all duration-200 text-[5vmin]`; cell.textContent = q.value; cell.onclick = () => openQuestionModal(q); }
+                else { cell.className = `flat-btn grid-cell game-value-cell ${theme.bg} ${theme.text} ${theme.hover} font-black cursor-pointer shadow-sm hover:shadow-md transform hover:scale-[1.015] transition-all duration-200`; cell.textContent = q.value; cell.onclick = () => openQuestionModal(q); }
                 grid.appendChild(cell);
             });
             gridWrapper.appendChild(grid);
             container.appendChild(gridWrapper);
+            fitGameGridToViewport(grid, cols, rows);
 
             if (state.currentQuestion) renderModal(container);
         }
@@ -1082,7 +1170,7 @@
             content.appendChild(catGrid);
 
             const qGrid = document.createElement('div');
-            qGrid.className = "game-grid";
+            qGrid.className = "editor-question-grid";
             qGrid.style = `display:grid; grid-template-columns:repeat(${cols}, 1fr); gap:1rem; width:100%; max-width:1400px`;
             state.gameData.questions.forEach(q => {
                 const d = document.createElement('div');
@@ -1112,7 +1200,7 @@
             const theme = getTheme(q.col);
             const allowThreeStrikes = state.gameData.config.allowThreeStrikes;
             const enforceOrder = state.gameData.config.enforceOrder;
-            const isBaitMode = state.gameMode === 'steal_gift';
+            const isTrickMode = state.gameMode === 'trick_or_treat';
             
             const overlay = document.createElement('div');
             overlay.className = "fixed inset-0 modal-overlay z-50 flex items-center justify-center p-6";
@@ -1142,7 +1230,7 @@
                 overlay.appendChild(content);
                 container.appendChild(overlay);
                 document.getElementById('jokerProceed').onclick = () => { 
-                    if(state.gameMode === 'steal_gift') {
+                    if(state.gameMode === 'trick_or_treat') {
                         state.sgActingTeam = enforceOrder ? state.activeTeamIndex : -1; 
                         state.modalStep = 11; 
                     } else {
@@ -1175,7 +1263,7 @@
             // --- SCHRITT 1: AUSWAHL RICHTIG/FALSCH ---
             else if (state.modalStep === 1 || state.modalStep === 10) {
                 let wrongCount = q.wrongCount || 0;
-                let strikesHTML = (allowThreeStrikes || enforceOrder) && !q.isJoker ? `<div class="text-xs text-rose-500 font-bold mb-1">Fehlversuche: ${wrongCount}/3</div>` : '';
+                let strikesHTML = allowThreeStrikes && !q.isJoker ? `<div class="text-xs text-rose-500 font-bold mb-1">Fehlversuche: ${wrongCount}/3</div>` : '';
                 let titleText = q.isJoker ? "Wer bekommt die Joker-Punkte?" : "War die Antwort richtig oder falsch?";
                 let contentHTML = '';
 
@@ -1201,7 +1289,7 @@
                                 if (!t.name || t.name.trim() === "") return ""; 
                                 
                                 if (q.isJoker) {
-                                    const action = state.gameMode === 'steal_gift' ? `sgSelectTargetTeam(${idx})` : `awardPoints(${idx}, ${q.value})`;
+                                    const action = state.gameMode === 'trick_or_treat' ? `sgSelectTargetTeam(${idx})` : `awardPoints(${idx}, ${q.value})`;
                                     return `<button onclick="${action}" class="bg-yellow-100 hover:bg-yellow-200 text-yellow-800 border border-yellow-300 py-3 rounded-xl transition font-bold shadow-sm">${t.name}</button>`;
                                 }
 
@@ -1250,7 +1338,7 @@
                 `;
             }
 
-            // --- SCHRITT 11: Trick or Treat ZIELWAHL ---
+            // --- SCHRITT 11: TRICK OR TREAT ZIELWAHL ---
             else if (state.modalStep === 11) {
                 const actingName = state.sgActingTeam >= 0 ? state.gameData.teams[state.sgActingTeam].name : "Das Team";
                 const titleText = q.isJoker ? "JOKER! Wem gebt ihr die Punkte?" : `Wem gibt ${actingName} die Punkte?`;
@@ -1271,7 +1359,7 @@
                 `;
             }
 
-            // --- SCHRITT 12: Trick or Treat REVEAL / PUNKTEANZEIGE ---
+            // --- SCHRITT 12: TRICK OR TREAT REVEAL / PUNKTEANZEIGE ---
             else if (state.modalStep === 12) {
                 const targetTeam = state.gameData.teams[state.sgTargetTeam];
                 const isPositive = q.secretSign > 0;
