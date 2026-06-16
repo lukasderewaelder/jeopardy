@@ -206,7 +206,7 @@
             gameMode: 'classic', // 'classic' oder 'bait_bless'
             gameData: createInitialData(),
             currentQuestion: null,
-            modalStep: 0, // 0: Frage, 1: Bewertung, 2: Lösung, 13: Punkteanzeige, 11/12: Bait or Bless
+            modalStep: 0, // 0: Frage, 1: Bewertung, 2: Lösung, 13: Punkteanzeige, 11/12: Trick or Treat
             showAnswer: false,
             editorAuth: false,
             pendingScoreUpdates: [],
@@ -458,7 +458,7 @@
             }
         }
 
-        // BAIT OR BLESS Logik
+        // Trick or Treat Logik
         function sgSelectActingTeam(idx) {
             state.sgActingTeam = idx;
             if (state.currentQuestion && !state.currentQuestion.isJoker) {
@@ -898,8 +898,8 @@
                             <span class="text-xs font-medium text-slate-400">Das normale Jeopardy</span>
                         </button>
                         <button onclick="startGame('steal_gift')" class="flat-btn bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-5 px-8 rounded-2xl shadow-xl shadow-indigo-300 text-xl tracking-wide flex-1 flex flex-col items-center justify-center gap-2">
-                            <span>BAIT OR BLESS</span>
-                            <span class="text-xs font-medium text-indigo-300">Der taktische Twist</span>
+                            <span>Trick or Treat</span>
+                            <span class="text-xs font-medium text-indigo-300">Seid ihr mutig genug?t</span>
                         </button>
                     </div>
 
@@ -920,7 +920,7 @@
                     <div class="flex-grow overflow-y-auto p-4 md:p-8">
                         <div class="max-w-3xl mx-auto space-y-12 pb-12">
                             <section class="bg-indigo-50 p-8 rounded-3xl shadow-sm border border-indigo-100">
-                                <h2 class="text-3xl font-black text-indigo-700 mb-6">Neuer Modus: Bait or Bless</h2>
+                                <h2 class="text-3xl font-black text-indigo-700 mb-6">Neuer Modus: Trick or Treat</h2>
                                 <div class="space-y-4 text-indigo-900 text-lg leading-relaxed">
                                     <p>Ein taktischer Twist für das klassische Spiel!</p>
                                     <ul class="list-disc pl-6 space-y-2">
@@ -980,7 +980,7 @@
             
             const navBar = document.createElement('div');
             navBar.className = "flex justify-between items-center px-4 py-1.5 border-b border-slate-100";
-            navBar.innerHTML = `<button onclick="state.view='menu'; render()" class="flex items-center gap-2 text-slate-400 hover:text-slate-800 transition font-bold text-xs md:text-sm"><span>← MENÜ</span></button><div class="font-black text-lg tracking-widest text-slate-800 hidden md:block">JEOPARDY <span class="text-indigo-500 text-sm ml-2">${state.gameMode === 'steal_gift' ? '(Bait or Bless)' : '(Klassisch)'}</span></div><button onclick="resetGameStatus()" class="text-rose-400 hover:text-rose-600 text-[10px] md:text-xs font-bold uppercase tracking-wide border border-rose-200 bg-rose-50 px-2 py-1 rounded-lg">Reset</button>`;
+            navBar.innerHTML = `<button onclick="state.view='menu'; render()" class="flex items-center gap-2 text-slate-400 hover:text-slate-800 transition font-bold text-xs md:text-sm"><span>← MENÜ</span></button><div class="font-black text-lg tracking-widest text-slate-800 hidden md:block">JEOPARDY <span class="text-indigo-500 text-sm ml-2">${state.gameMode === 'steal_gift' ? '(Trick or Treat)' : '(Klassisch)'}</span></div><button onclick="resetGameStatus()" class="text-rose-400 hover:text-rose-600 text-[10px] md:text-xs font-bold uppercase tracking-wide border border-rose-200 bg-rose-50 px-2 py-1 rounded-lg">Reset</button>`;
             header.appendChild(navBar);
 
             const scoreBar = document.createElement('div');
@@ -1250,7 +1250,7 @@
                 `;
             }
 
-            // --- SCHRITT 11: BAIT OR BLESS ZIELWAHL ---
+            // --- SCHRITT 11: Trick or Treat ZIELWAHL ---
             else if (state.modalStep === 11) {
                 const actingName = state.sgActingTeam >= 0 ? state.gameData.teams[state.sgActingTeam].name : "Das Team";
                 const titleText = q.isJoker ? "JOKER! Wem gebt ihr die Punkte?" : `Wem gibt ${actingName} die Punkte?`;
@@ -1271,7 +1271,7 @@
                 `;
             }
 
-            // --- SCHRITT 12: BAIT OR BLESS REVEAL / PUNKTEANZEIGE ---
+            // --- SCHRITT 12: Trick or Treat REVEAL / PUNKTEANZEIGE ---
             else if (state.modalStep === 12) {
                 const targetTeam = state.gameData.teams[state.sgTargetTeam];
                 const isPositive = q.secretSign > 0;
